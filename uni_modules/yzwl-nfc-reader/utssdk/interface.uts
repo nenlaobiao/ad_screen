@@ -1,0 +1,123 @@
+export type responseJSON = {
+	msg ?: string,
+	code : number
+}
+export type ReaderOptions = {
+	appKey : string;
+	appSecret : string;
+	userData : string;
+}
+
+export type ReaderCallBack = {
+	/**
+	 * 登录参数
+	 */
+	data : ReaderOptions;
+	/**
+	 * 解码进度的回调
+	 * @res 进度值
+	 */
+	progress : (res : number, msg : string) => void;
+	
+	/**
+	 * 解码开始的回调
+	 * @res 说明
+	 */
+	start : (res : string) => void;
+	
+	/**
+	 * 解码结束的回调
+	 * @res 说明
+	 */
+	end : (res : string) => void;
+	/**
+	 * 解码成功结果的回调
+	 * @info 证件信息
+	 */
+	success : (info : ResultInfo) => void;
+
+	/**
+	 * 解码失败的回调
+	 * @info 证件信息
+	 */
+	fail : (info : responseJSON) => void;
+}
+
+
+export type ResultInfo = {
+	
+	/**
+	 * 姓名
+	 */
+	name: string,
+	
+	/**
+	 * 证件号
+	 */
+	no: string,
+	
+	/**
+	 * 性别
+	 */
+	sex:string,
+	
+	/**
+	 * 民族
+	 */
+	nation:string,
+	
+	/**
+	 * 出生日期
+	 */
+	birth:string,
+	
+	/**
+	 * 出生年
+	 */
+	year:string,
+	
+	/**
+	 * 出生月
+	 */
+	month:string,
+	
+	/**
+	 * 出生日
+	 */
+	date:string,
+	
+	/**
+	 * 住址
+	 */
+	address:string,
+	
+	/**
+	 * 签发机关
+	 */
+	signedDepartment:string,
+	
+	/**
+	 * 有效起始日期
+	 */
+	validityBegin:string,
+	
+	/**
+	 * 有效结束日期
+	 */
+	validityEnd:string,
+	
+	/**
+	 * 身份证芯片照
+	 */
+	photoBase64Bmp:string ,
+	
+	/**
+	 * 身份证芯片照PNG格式
+	 */
+	photoBase64Png:string 
+	
+	/**
+	 * A卡芯片SN码
+	 */
+	aCardSn:string 
+}

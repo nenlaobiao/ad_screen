@@ -1,0 +1,89 @@
+{
+  "id": "yzwl-nfc-reader",
+  "displayName": "UTS NFC USB读卡器 身份证读取",
+  "version": "1.0.19",
+  "description": "基于鱼住未来身份信息读取SDK开发的NFC或USB读卡器读取身份证并返回结果",
+  "keywords": [
+    "UTS",
+    "NFC",
+    "USB读卡器",
+    "身份证读取",
+    "可自定义页面"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^3.6.8"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "contact": {
+      "qq": ""
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "插件使用的 鱼住未来身份证读卡 SDK （yzwlnfcreadcard.aar）会采集设备信息。",
+      "permissions": "android.permission.NFC\nandroid.permission.READ_PHONE_STATE"
+    },
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "y",
+        "aliyun": "y",
+        "alipay": "n"
+      },
+      "client": {
+        "Vue": {
+          "vue2": "y",
+          "vue3": "y"
+        },
+        "App": {
+            "app-android": {
+                "minVersion": "23"
+            },
+            "app-ios": "n",
+            "app-harmony": "u"
+        },
+        "H5-mobile": {
+          "Safari": "n",
+          "Android Browser": "n",
+          "微信浏览器(Android)": "n",
+          "QQ浏览器(Android)": "n"
+        },
+        "H5-pc": {
+          "Chrome": "n",
+          "IE": "n",
+          "Edge": "n",
+          "Firefox": "n",
+          "Safari": "n"
+        },
+        "小程序": {
+          "微信": "n",
+          "阿里": "n",
+          "百度": "n",
+          "字节跳动": "n",
+          "QQ": "n",
+          "钉钉": "n",
+          "快手": "n",
+          "飞书": "n",
+          "京东": "n"
+        },
+        "快应用": {
+          "华为": "n",
+          "联盟": "n"
+        }
+      }
+    }
+  }
+}

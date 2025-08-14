@@ -1,0 +1,683 @@
+import { NfcAdapter } from "android.nfc"
+import {
+	UTSAndroid
+} from "io.dcloud.uts";
+import PendingIntent from 'android.app.PendingIntent';
+import { Context, Intent, IntentFilter } from 'android.content';
+import { ReaderCallBack, responseJSON, ReaderOptions, ResultInfo } from "../interface.uts"
+import { ActiveCallBack, OTGReadCardAPI, TwoCardInfo } from "com.readTwoGeneralCard"
+import { eCardType } from "com.readTwoGeneralCard"
+import Activity from 'android.app.Activity';
+import Base64 from 'android.util.Base64';
+
+import BroadcastReceiver from 'android.content.BroadcastReceiver';
+import UsbManager from 'android.hardware.usb.UsbManager';
+import UsbDevice from 'android.hardware.usb.UsbDevice';
+import Build from 'android.os.Build';
+import {Bitmap, BitmapFactory, Color} from 'android.graphics';
+import ByteArrayOutputStream from 'java.io.ByteArrayOutputStream';
+import ca from 'e.a.a.ca';
+import ReaderCallback from 'android.nfc.NfcAdapter.ReaderCallback';
+
+
+const ACTION_USB_PERMISSION = "com.android.usb.USB_PERMISSION"
+
+/*标准版读卡器*/
+const ONLINE_DEVICE_PRODUCT_ID = 20763
+const ONLINE_DEVICE_VENDOR_ID = 1306
+
+/*离线版读卡器*/
+const OFFLINE_DEVICE_PRODUCT_ID = 50010
+const OFFLINE_DEVICE_VENDOR_ID = 1024
+
+let isReading : Boolean = false
+let initLoginSuccess : Boolean = false
+let deviceEnable : Boolean = true
+
+let techListsArray = arrayOf(arrayOf('android.nfc.tech.NfcA'), arrayOf('android.nfc.tech.NfcB'))
+let readerHelper : YzwlReadHelper | null = null
+let readCallBack : ReaderCallBack | null = null
+let usbReadHelper : YzwlUSBManager | null = null
+let main = UTSAndroid.getUniActivity() as Activity
+let isFirstLoad : Boolean = true
+let isNFCResume : Boolean = false
+let isNFCPause : Boolean = false
+let isNFCDestroy : Boolean = false
+
+let loginData : ReaderOptions | null = null
+
+//鱼住未来读卡器类型0在线  1离线
+let readerDeviceType : Int = 0
+
+let readerDeviceOnline : Boolean = false
+/**
+ * 鱼住未来USB读卡
+ */
+class YzwlUSBManager {
+	private myContext : Context = UTSAndroid.getAppContext() as Context
+	/*系统usb管理*/
+	private myUsbManager : UsbManager | null = null
+
+	public init() {
+		let _this = this
+		class MyBroadcastReceiver extends BroadcastReceiver() {
+			override onReceive(context : Context, intent : Intent) {
+				let action = intent.getAction()
+				if (action != null && action != "") {
+					if (action == UsbManager.ACTION_USB_DEVICE_ATTACHED || action == UsbManager.ACTION_USB_DEVICE_DETACHED) {
+						//插入USB设备 || 拔出设备时，查找满足条件的设备
+						_this.getDevicePermission(_this.findDevices())
+					} else if (action == ACTION_USB_PERMISSION) {
+						//根据用户授权结果 决定是否启用usb
+						deviceEnable = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+					}
+				}
+			}
+		}
+
+		this.myUsbManager = this.myContext.getSystemService(Context.USB_SERVICE) as UsbManager
+		//查找满足条件的usb设备并请求权限
+		this.getDevicePermission(this.findDevices())
+
+		let usbChageReceiver = new MyBroadcastReceiver()
+
+		//注册通知
+		let dFilter = new IntentFilter()
+		//插入设备监听
+		dFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+		//拔出设备监听
+		dFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+		//打开设备监听
+		dFilter.addAction(ACTION_USB_PERMISSION)
+		this.myContext.registerReceiver(usbChageReceiver, dFilter)
+	}
+
+	/**
+	 * 请求usb授权
+	 */
+	private getDevicePermission(device : UsbDevice | null) {
+		if ( device == null ){
+			return
+		}
+		let pendingIntent = PendingIntent.getBroadcast(
+			this.myContext,
+			0,
+			this.getDeviceIntent(),
+			(Build.VERSION.SDK_INT >= 31) ? PendingIntent.FLAG_MUTABLE : 0
+		)
+		this.myUsbManager?.requestPermission(device, pendingIntent)
+	}
+
+	private getDeviceIntent() : Intent {
+		let intent = new Intent(ACTION_USB_PERMISSION);
+		if(Build.VERSION.SDK_INT >= 34){
+			intent.setPackage(main.getPackageName());
+		}
+		return intent
+	}
+
+	/**
+	 * 查找设备
+	 * 插入后多个设备
+	 * 拔出后读卡器没有
+	 */
+	private findDevices() : UsbDevice | null {
+		let device : UsbDevice | null = null
+		let hasReadDevice : Boolean = false
+		let deviceList = this.myUsbManager?.getDeviceList()
+		if (deviceList != null) {
+			deviceList.forEach(item => {
+				let d = item.value as UsbDevice
+				let dType : Int = this.deviceType(d)
+				if (dType != -1) {
+					device = d
+					if (readerDeviceType != dType) {
+						readerDeviceType = dType
+					}
+					hasReadDevice = true
+					return
+				}
+			})
+
+			//无离线读卡器  设置为在线读卡器
+			if (!hasReadDevice && readerDeviceType == 1) {
+				readerDeviceType = 0
+			}
+
+		} else {
+			readerDeviceType = 0
+		}
+		readerDeviceOnline = hasReadDevice
+		//异步设置读卡器类型
+		setTimeout(() => {
+			setYzwlDeviceType()
+		}, 1000)
+		return device
+	}
+
+
+	/**
+	 * 判断读卡器类型
+	 */
+	private deviceType(device : UsbDevice | null) : Int {
+		if (device != null && device.getProductId() == ONLINE_DEVICE_PRODUCT_ID && device.getVendorId() == ONLINE_DEVICE_VENDOR_ID) {
+			//标准版读卡器
+			return 0
+		}
+		if (device != null && device.getProductId() == OFFLINE_DEVICE_PRODUCT_ID && device.getVendorId() == OFFLINE_DEVICE_VENDOR_ID) {
+			//离线版读卡器
+			return 1
+		}
+		//不能识别设备
+		return -1
+	}
+
+	/**
+	  * 获取当前读卡器类型
+	  */
+	findDeviceType() : Int {
+		return this.deviceType(this.findDevices())
+	}
+}
+
+
+/**
+ * 鱼住未来读卡SDK
+ */
+class YzwlReadHelper implements ActiveCallBack {
+
+	private host : string = "id.yzfuture.cn"
+	private port : Int = 443
+	//解码服务
+	private readCardAPI : OTGReadCardAPI | null = null;
+
+	nfcReading : Boolean = false
+
+	override upgradeInfo(param0 ?: string) : void {
+
+	}
+	override setUserInfo(param0 ?: string) : void {
+
+	}
+	override readProgress(_p0 : Int, _p1 ?: string) : void {
+		readCallBack!.progress(_p0 * 100 / 19, "")
+	}
+	/**
+	 * 初始化解码服务
+	 * @param context
+	 */
+	public initApi(context : Context) : void {
+		try {
+			//初始化解码服务
+			readCardAPI = new OTGReadCardAPI(context, this);
+		} catch (e : Exception) {
+			let res : responseJSON = {
+				code: 120, msg: e.message
+			}
+			readCallBack!.fail(res)
+		}
+	}
+
+	/**
+	 * 用户登录
+	 * 解码前必须调用
+	 */
+	registerNFC(opt : ReaderOptions) : Boolean {
+		if (readCardAPI == null) return false;
+		try {
+			if (opt.appKey.length == 0 || opt.appKey.length == 0) {
+				let res : responseJSON = {
+					code: 150, msg: "应用key 或者 secret 不能为空"
+				}
+				readCallBack!.fail(res)
+				return false
+			}
+			let loginResult = readCardAPI!.initReadCard(host, port, opt.appKey, opt.appSecret, opt.userData);
+			if (!loginResult) {
+				let res : responseJSON = {
+					code: readCardAPI!.GetErrorCode(), msg: readCardAPI!.GetErrorInfo()
+				}
+				readCallBack!.fail(res)
+			}
+			return loginResult
+		} catch (e : Exception) {
+			let res : responseJSON = {
+				code: 130, msg: e.message
+			}
+			readCallBack!.fail(res)
+		}
+		return false;
+	}
+
+	/**
+	 * 用户登出
+	 */
+	unRegisterNFC() : void {
+		readCardAPI!.uninitReadCard();
+	}
+
+	/**
+	 * 具体的解码操作
+	 */
+	public readIntent(intent ?: Intent | null, passportNO : string = "", passportBirth : string = "", passportEnd : string = "") : void {
+		if (readCardAPI == null || nfcReading) return;
+		nfcReading = true;
+		isReading = true;
+		try {
+			// //读卡器处理
+			// if (intent == null) {
+			// 	//没有intent 调用读卡器读卡
+			// 	// 设置读卡器类型 0在线 离线
+			// 	readCardAPI?.setDeviceType(0);
+			// }
+			readCallBack!.start("读卡开始")
+			console.log('isReading----------------',isReading);
+			//获取卡片类型 intent为空时为eUnKwon
+			let type = readCardAPI!.cardType(intent);
+
+			let result : Int = 0
+			let snString : String = ""
+			if (type == eCardType.ePassportCard) {
+				//读取护照信息 最后一个参数表示是否需要解码照片
+				result = readCardAPI!.NfcReadEPassport(intent, passportNO, passportBirth, passportEnd, true);
+			} else  if (type == eCardType.eTwoGeneralCard) {
+				//读取身份证信息
+				result = readCardAPI!.NfcReadCard(intent);
+			}else{
+				// 未知情况 试试读取下sn
+				snString = readCardAPI!.getACardSN(intent);
+				readCallBack!.success(tranResultSn(snString))
+			}
+			//如果用户没有设置回调 标识不关心读卡结果 不处理
+
+			if (result == 90) {
+				readCallBack!.progress(100, "读卡结束")
+				// if (type == eCardType.ePassportCard) {
+				// 	//护照读取成功 回调告诉用户
+				// 	NfcCallBack!.success(readCardAPI!.GetPassportInfo())
+				// } else {
+				// 	//身份证读卡成功 回调告诉用户
+				// }
+				readCallBack!.success(tranResultInfo(readCardAPI!.GetTwoCardInfo()))
+			} else {
+				let res : responseJSON = {
+					code: readCardAPI!.GetErrorCode(), msg: readCardAPI!.GetErrorInfo()
+				}
+				readCallBack!.fail(res)
+			}
+		} catch (e : Exception) {
+			let res : responseJSON = {
+				code: 140, msg: e.message
+			}
+			readCallBack!.fail(res)
+		} finally {
+			//整个读卡流程结束 重置进度并回调结束
+			readCallBack!.progress(0, "读卡重置")
+			readCallBack!.end("读卡结束")
+			nfcReading = false;
+			isReading = false;
+		}
+	}
+
+
+	setDeviceType(deviceType : Int) {
+		readCardAPI!.setDeviceType(deviceType);
+	}
+
+}
+
+/**
+ * 设置读卡器类型
+ */
+function setYzwlDeviceType() {
+	console.log("设置读卡器类型", readerDeviceType, readerHelper == null);
+	readerHelper?.setDeviceType(readerDeviceType)
+}
+
+/**
+ * NFC初始化
+ */
+function initNFC(callBack : ReaderCallBack) : void {
+	let nfcAdapter = NfcAdapter.getDefaultAdapter(main)
+	//没有NFC适配器
+	if (nfcAdapter == null) {
+		let res : responseJSON = {
+			code: -100, msg: "没有NFC适配器"
+		}
+		callBack.fail(res)
+		return
+	}
+
+	//未开启NFC
+	if (!nfcAdapter.isEnabled()) {
+		let res : responseJSON = {
+			code: -110, msg: "NFC功能未启用"
+		}
+		callBack.fail(res)
+		return
+	}
+	let intent = new Intent(main, main?.javaClass)
+	intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+	let pendingIntent = PendingIntent.getActivity(main, 0, intent, 0)
+	let ndef = new IntentFilter("android.nfc.action.TECH_DISCOVERED");
+	ndef.addDataType("*/*");
+	let intentFiltersArray = arrayOf(ndef);
+
+	if (!isNFCPause) {
+		//APP隐藏触发NFC回收
+		UTSAndroid.onAppActivityPause(() => {
+			nfcAdapter!.disableForegroundDispatch(main)
+		})
+		isNFCPause = true
+	}
+
+	if (!isNFCResume) {
+		//APP显示 向系统获取NFC
+		UTSAndroid.onAppActivityResume(() => {
+			nfcAdapter!.enableForegroundDispatch(main, pendingIntent, intentFiltersArray, techListsArray)
+		})
+		isNFCResume = true
+	}
+
+	if (!isNFCDestroy) {
+		//APP销毁，释放资源
+		UTSAndroid.onAppActivityDestroy(() => {
+			readerHelper!.unRegisterNFC()
+			readerHelper = null
+			isReading = false
+			readCallBack = null
+		})
+		isNFCDestroy = true
+	}
+	// 初次加载可能在app的resume周期之后，需要主动调用一次
+	if (isFirstLoad) {
+		nfcAdapter!.enableForegroundDispatch(main, pendingIntent, intentFiltersArray, techListsArray)
+		isFirstLoad = false
+	}
+}
+
+/**
+ * USB初始化
+ */
+function initUSB(callBack : ReaderCallBack) : void {
+	if (usbReadHelper == null) {
+		usbReadHelper = new YzwlUSBManager()
+		usbReadHelper!.init()
+	}
+}
+
+/**
+ * 本插件初始化方法
+ */
+@UTSJS.keepAlive
+export function initReader(callBack : ReaderCallBack) : void {
+
+	readCallBack = callBack
+	//初始化NFC 
+	initNFC(callBack)
+	//初始化USB
+	initUSB(callBack)
+
+	// 鱼住未来读卡SDK初始化
+	if (readerHelper == null) {
+		readerHelper = new YzwlReadHelper()
+		readerHelper!.initApi(main)
+	}
+	setYzwlDeviceType()
+	/**
+	 * 登录失败
+	 * 上次登录成功后保存的登录参数和本次的不一致 需要先调用注销，再进行登录
+	 */
+
+	//默认登录参数没变
+	let isOptionsChanged = false
+	if (loginData != null && (loginData?.appKey != callBack.data.appKey || loginData?.appSecret != callBack.data.appSecret || loginData?.userData != callBack.data.userData)) {
+		isOptionsChanged = true
+	}
+	setTimeout(() => {
+		if (initLoginSuccess && isOptionsChanged) {
+			readerHelper!.unRegisterNFC()
+		}
+		if (!initLoginSuccess || isOptionsChanged) {
+			let initResult = readerHelper!.registerNFC(callBack.data)
+			if (initResult) {
+				loginData = callBack.data
+			}
+			initLoginSuccess = initResult
+		}
+	}, 300)
+}
+
+
+export function onNewIntent() {
+	//NFC鱼住未来参数验证失败将不读卡
+	if (!initLoginSuccess) {
+		return
+	}
+	//正在读卡，拒绝其他intent
+	if (isReading) {
+		return
+	}
+
+	let intent = main!.getIntent()
+	readerHelper!.readIntent(intent)
+}
+
+//是否USB自动读卡, 默认不开启
+let isUsbAutoRead : Boolean = false
+//自动读卡循环函数值
+let usbReaderInterval : number = 0
+
+/**
+ * USB设置是否自动读卡 ，默认为自动   false 为手动
+ */
+export function usbAutoReadConfig(auto : Boolean = true) {
+	isUsbAutoRead = auto
+}
+
+/**
+ * USB停止读卡，退出页面的时候需要调用
+ */
+export function usbsbReadStop() {
+	usbLoopReaderStop()
+}
+
+/**
+ * USB自动读卡开始
+ */
+export function usbLoopReader() {
+	//设置自动且未启动过
+	console.log("自动读卡开始", usbReaderInterval, isUsbAutoRead, 	readerHelper!.nfcReading);
+	if (usbReaderInterval == 0 && isUsbAutoRead) {
+		usbReaderInterval = setInterval(() => {
+			usbAction()
+		}, 3000)
+	}
+}
+
+/**
+ * USB自动读卡停止
+ */
+export function usbLoopReaderStop() {
+	if (usbReaderInterval > 0) {
+		// console.log('usbReaderInterval--',usbReaderInterval);
+		clearInterval(usbReaderInterval)
+		usbReaderInterval = 0
+	}
+}
+
+/**
+ * USB手动调用这个函数
+ */
+export function usbReader() {
+	//如果开启自动读卡设置或者已有自动读卡，需要先调用 usbAutoReadConfig(false) 设置为false 再调用 usbLoopReaderStop()
+	if (usbReaderInterval > 0 || isUsbAutoRead) {
+		let res : responseJSON = {
+			code: -160, msg: "当前设置为自动读卡模式，请先调用先调用 usbAutoReadConfig(false) 设置为手动， 再调用 usbLoopReaderStop() 注销自动操作。"
+		}
+		readCallBack!.fail(res)
+		return
+	}
+	usbAction()
+}
+
+/**
+ * USB自动读卡停止
+ */
+function usbAction() {
+	console.log("读卡操作 --- 初始化：", usbReadHelper != null,'，打开设备：', deviceEnable, '，设备在线：',readerDeviceOnline, '，是否读卡中：',readerHelper!.nfcReading);
+	if (usbReadHelper != null && initLoginSuccess && deviceEnable && readerDeviceOnline && !readerHelper!.nfcReading) {
+		readerHelper!.readIntent(null)
+	}
+}
+
+function tranResultInfo(info : TwoCardInfo) : ResultInfo {
+
+	let birth = converBirthDay(info.szTwoIdBirthday)
+	let strArr = birth.split("-")
+
+	let year = strArr[0] 
+	let month = Integer.valueOf(strArr[1]) 
+	let date = Integer.valueOf(strArr[2]) 
+	
+	let res : ResultInfo = {
+		name: info.szTwoIdName,
+		no: info.szTwoIdNo,
+		sex: info.szTwoIdSex,
+		nation: info.szTwoIdNation,
+		birth: birth,
+		year: year,
+		month: month.toString(),
+		date: date.toString(),
+		address: info.szTwoIdAddress,
+		signedDepartment: info.szTwoIdSignedDepartment,
+		validityBegin: converValidityDay(info.szTwoIdValidityPeriodBegin),
+		validityEnd: converValidityDay(info.szTwoIdValidityPeriodEnd),
+		photoBase64Png: convertByteToBase64Png(info.arrTwoIdPhoto),
+		photoBase64Bmp: convertByte2base64(info.arrTwoIdPhoto),
+		aCardSn: '',
+	}
+	return res
+}
+
+function tranResultSn(sn : String) : ResultInfo {
+	let res : ResultInfo = {
+		name: "",
+		no: "",
+		sex: "",
+		nation: "",
+		birth: "",
+		year: "",
+		month: "",
+		date: "",
+		address: "",
+		signedDepartment: "",
+		validityBegin: "",
+		validityEnd: "",
+		photoBase64Png: "",
+		photoBase64Bmp: "",
+		aCardSn: sn
+	}
+	return res
+}
+
+function convertByte2base64(imgByte : ByteArray) : string {
+	try {
+		let res = Base64.encodeToString(imgByte, Base64.NO_WRAP)
+		res.replaceAll("\\n", "")
+		return res
+	} catch (e : Exception) {
+		e.printStackTrace()
+	}
+	
+	return ""
+}
+
+let dateReg = /^(\d{4})(\d{2})(\d{2})$/
+
+function converBirthDay(p0 : string) : string {
+	
+	return p0.replace(dateReg, "$1-$2-$3");
+}
+
+function converValidityDay(p0 : string) : string {
+	if (p0.trim() == '长期') {
+		return p0
+	}
+	return p0.replace(dateReg, "$1.$2.$3");
+}
+
+/**
+ * 证件照透明度处理并转PNG
+ * 返回base64格式
+ */
+function convertByteToBase64Png(imgByte: ByteArray): string {
+	let bitmap: Bitmap | null = null
+	let result: string = ""
+	let newBitmap: Bitmap | null = null
+	try {
+		bitmap = BitmapFactory.decodeByteArray(imgByte, 0, imgByte.size)
+		if (bitmap != null){
+			newBitmap = replaceBitmapColor(bitmap)
+			if (newBitmap != null){
+				newBitmap.setHasAlpha(true)
+				let bos1 = new ByteArrayOutputStream()
+				newBitmap!.compress(Bitmap.CompressFormat.PNG, 100, bos1)
+				bos1.close()
+				result = Base64.encodeToString(bos1.toByteArray(), Base64.NO_WRAP)
+			}
+		}
+	}catch (e: Exception){
+		console.log(e.message);
+	}finally {
+		if (bitmap != null && !bitmap!.isRecycled){
+			bitmap!.recycle()
+		}
+		if (newBitmap != null && !newBitmap!.isRecycled){
+			newBitmap!.recycle()
+		}
+	}
+	return result
+}
+
+/**
+ * 证件照透明度处理
+ */
+function replaceBitmapColor(oldBitmap: Bitmap): Bitmap | null {
+	let newColor: Int = Color.TRANSPARENT
+	let config = Bitmap.Config.ARGB_8888
+	
+	if (null == oldBitmap) return null
+	let mBitmap = oldBitmap.copy(config, true)
+	//循环获得bitmap所有像素点
+	let mBitmapWidth = mBitmap.getWidth()
+	let mBitmapHeight = mBitmap.getHeight()
+	
+	let r0:Int = 255
+	let g0:Int = 255
+	let b0:Int = 255
+	let a0:Int = 255
+	let tolerance:Int = 50
+	for (let x:Int = 0; x < mBitmapWidth; x++) {
+		for (let y:Int = 0; y < mBitmapHeight; y++) {
+			//获得Bitmap 图片中每一个点的color颜色值
+			//将需要填充的颜色值如果不是
+			//在这说明一下 如果color 是全透明 或者全黑 返回值为 0
+			//getPixel()不带透明通道 getPixel32()才带透明部分 以全透明是0x00000000
+			//而不透明黑色是0xFF000000 如果不计算透明部分就都是0了
+			let color: Int = mBitmap.getPixel(x,y)
+			let r = Color.red(color)
+			let g = Color.green(color)
+			let b = Color.blue(color)
+			let a = Color.alpha(color)
+			
+			let t = Math.sqrt(Math.pow(r-r0,2) + Math.pow(g-g0,2) + Math.pow(b-b0,2) + Math.pow(a-a0,2))
+			if(t <= tolerance){
+				mBitmap.setPixel(x,y,newColor)
+			}
+		}
+	}
+	
+	oldBitmap.recycle()
+    return mBitmap
+}

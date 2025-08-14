@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+	 package="io.dcloud.uni_modules.uts_nfc_reader">
+    <!-- OTG -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.usb.accessory" />
+
+    <!-- NFC -->
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="true" />
+    <uses-permission android:name="android.permission.NFC" />
+	
+	<!-- USB -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.usb.accessory" /> 
+
+    <!-- 设备信息 手机号码、IMEI、IMSI -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+
+
+</manifest>

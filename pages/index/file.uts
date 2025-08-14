@@ -1,0 +1,203 @@
+import type { AdItem, dFile, GetMediaInfo } from './types.uts'
+
+const AD_CACHE_KEY = "ADcatch"
+
+// #ifdef MP
+const basePath = uni.env.USER_DATA_PATH + '/'
+const cachePath = uni.env.CACHE_PATH + '/'
+// #endif
+// #ifndef MP
+const basePath = uni.env.USER_DATA_PATH
+const cachePath = uni.env.CACHE_PATH
+// #endif
+
+export const ossUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"
+const FS = uni.getFileSystemManager()
+
+/** 获取文件名 */
+export function getFileName(url : string) : string {
+	const match = url.match(/([^\/]+)$/)
+	return match?.[1] ?? ''
+}
+
+/** 判断媒体类型 */
+function getMediaType(fileName : string) : 'image' | 'video' | 'other' {
+	const extension = fileName.split('.').pop()?.toLowerCase() ?? ''
+	const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff']
+	const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', '3gp', 'm4v']
+	if (imageExtensions.includes(extension)) return 'image'
+	if (videoExtensions.includes(extension)) return 'video'
+	return 'other'
+}
+
+/** 读取缓存数据 */
+function loadCache() : dFile[] {
+	const json = uni.getStorageSync(AD_CACHE_KEY)
+	if (typeof json === 'string' && json.trim() != '') {
+		try {
+			const parsed = JSON.parse<dFile[]>(json)
+			if (Array.isArray(parsed)) return parsed as dFile[]
+		} catch (e) {
+			console.warn("缓存解析失败:", e)
+		}
+	}
+	return []
+}
+
+/** 读取本地广告资源文件名 */
+function readLocalFileNames(url:string) : string[] {
+	try {
+		FS.accessSync(url)
+		const files = FS.readdirSync(url)
+		return files != null && Array.isArray(files) && files.length > 0 ? files : []
+	} catch (e) {
+		FS.mkdirSync(url, true)
+		return []
+	}
+}
+
+/** 删除多余的文件 */
+function cleanObsoleteFiles(url:string, needed : string[], localFiles : string[]) : number {
+	let count = 0
+	for (const file of localFiles) {
+		if (!needed.includes(file)) {
+			try {
+				FS.unlinkSync(`${url}${file}`)
+				count++
+				console.log(`清除本地缓存: ${file}`)
+			} catch (e) {
+				console.warn(`删除失败: ${file}`, e)
+			}
+		}
+	}
+	return count
+}
+
+/** 过滤无效缓存项（本地文件不存在） */
+function filterValidCache(url:string, cacheList : dFile[], localFileNames : string[]) : dFile[] {
+	return cacheList.filter(item => {
+		const fullPath = `${url}/${item.fileName}`
+		try {
+			FS.accessSync(fullPath)
+			return localFileNames.includes(item.fileName)
+		} catch {
+			return false
+		}
+	})
+}
+
+/** 获取需下载的资源 */
+function getDownloadList(list : AdItem[], localFileNames : string[]) : AdItem[] {
+	return list.filter(item => !localFileNames.includes(getFileName(item.src)))
+}
+
+/** 排序合并缓存与新下载的数据 */
+function mergeAndSort(list : AdItem[], allFiles : dFile[]) : dFile[] {
+	const sortMap = new Map<string, number>()
+	list.forEach((item, index) => {
+		sortMap.set(getFileName(item.src), index)
+	})
+	return allFiles.sort((a, b) => {
+		return (sortMap.get(a.fileName) ?? Infinity) - (sortMap.get(b.fileName) ?? Infinity)
+	})
+}
+
+/** 下载缺失资源（并发控制 + 重试） */
+async function downloadAD(url:string, list : AdItem[], maxConcurrent = 3, attempt = 3) : Promise<dFile[]> {
+	const successList : dFile[] = []
+	const tasks : AdItem[] = [...list]
+
+	async function runTask() {
+		while (tasks.length > 0) {
+			const item = tasks.shift()
+			if (item == null) continue
+			for (let d = 1; d <= attempt; d++) {
+				try {
+					console.log(`${d == 1 ? '开始' : '重试'}下载 ${item.src}`)
+					const result = await downloadFile(url,item)
+					successList.push(result)
+					break
+				} catch (e) {
+					if (d === attempt) console.error(`下载失败跳过: ${item.src}`)
+				}
+			}
+		}
+	}
+
+	// 同时启动最多 maxConcurrent 个任务
+	const tasksList : Promise<void>[] = [];
+	for (let i = 0; i < maxConcurrent; i++) {
+		tasksList.push(runTask());
+	}
+	await Promise.all(tasksList);
+	return successList
+}
+
+/** 单个文件下载及保存 */
+function downloadFile(url:string, data : AdItem) : Promise<dFile> {
+	return new Promise((resolve, reject) => {
+		uni.downloadFile({
+			url: ossUrl + data.src,
+			success: (res) => {
+				if (res.statusCode == 200) {
+					try {
+						getMediaInfo(res.tempFilePath, data.type).then((info : GetMediaInfo) => {
+							const fileName = getFileName(data.src)
+							const file : dFile = {
+								data,
+								path: FS.saveFileSync(res.tempFilePath, `${url}${fileName}`), // ${fileName}
+								fileName,
+								mediaInfo: info
+							}
+							resolve(file)
+						}).catch(() => reject(new Error('媒体信息获取失败')))
+					} catch (error) {
+						reject(new Error('媒体信息获取失败'))
+					}
+				} else {
+					reject(new Error('下载失败，状态码非200'))
+				}
+			},
+			fail: (err) => reject(err)
+		})
+	})
+}
+
+/** 获取图片/视频信息 */
+function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
+	return new Promise((resolve, reject) => {
+		const fail = (label : string, err : any) => {
+			console.log(`媒体信息获取失败 (${label}), err`)
+			reject(err)
+		}
+		if (type === 'image') {
+			uni.getImageInfo({ src, success: resolve, fail: err => fail('image', err) })
+		} else if (type === 'video') {
+			uni.getVideoInfo({ src, success: resolve, fail: err => fail('video', err) })
+		} else {
+			reject(new Error('不支持的媒体类型'))
+		}
+	})
+}
+
+/**
+ * 文件统一下载管理
+ * @param {Array}list 文件列表 
+ * @param {String} url 储存文件夹
+ */
+export default async function fileManage(list : AdItem[], url:string = 'ad') : Promise<dFile[]> {
+	const adFileUrl = `${basePath}${url}/`
+	const cached = loadCache()
+	const localFiles = readLocalFileNames(adFileUrl)
+	const neededFileNames = list.map(item => getFileName(item.src))
+	const deletedCount = cleanObsoleteFiles(adFileUrl, neededFileNames, localFiles)
+	const validCache = filterValidCache(adFileUrl, cached, localFiles)
+	const toDownload = getDownloadList(list, localFiles)
+	const downloaded = await downloadAD(adFileUrl, toDownload)
+	
+	const merged = mergeAndSort(list, [...validCache, ...downloaded])
+
+	console.log(`缓存${validCache.length}项，下载${downloaded.length}项，删除${deletedCount}项`)
+	uni.setStorageSync(AD_CACHE_KEY, JSON.stringify(merged))
+	return merged
+}

@@ -1,0 +1,109 @@
+<script setup lang="uts">
+import type { AdItem ,State} from './types.uts'
+import fileManage , {ossUrl} from "./file.uts"
+const device = uni.getWindowInfo()
+console.log('device',device)
+const content_style ={ 
+	height:`${device.screenWidth}px`,
+	width:`${device.screenWidth*1.2}px`
+}
+
+const adData :AdItem []= [
+	{
+		id:0,
+		title:'广告0',
+		src:'/storage/adtest/20250701/77be24aa24b7fd99ee342c2f31211b0f.mp4',
+		type:'video'
+	},
+	{
+		id:1,
+		title:'广告1',
+		src:'/storage/adtest/20250701/9258ed6f22a6320cb61e56d152653918.jpg',
+		type:'image'
+	},
+	{
+		id:2,
+		title:'广告2',
+		src:'/storage/adtest/20250701/87e204694fb730b84574d108a9b954b3.mp4',
+		type:'video'
+	},
+	{
+		id:3,
+		title:'广告3',
+		src:'/storage/adtest/20250701/ed58d52141f973ebf38f5a4188001291.jpg',
+		type:'image'
+	},
+	{
+		id:4,
+		title:'广告4',
+		src:'/storage/adtest/20250701/35f9d4cd70cc915667a6889997cecbf7.mp4',
+		type:'video'
+	},
+	{
+		id:5,
+		title:'广告5',
+		src:'/storage/adtest/20250701/af316ec1c4f76b31ef9160e5c526029e.jpg',
+		type:'image'
+	},
+]
+const state = reactive<State>({
+	adList:[]
+})
+onLoad(()=>{
+	fileManage(adData).then(res=>{
+		console.log('fileManage',res)
+		state.adList = res
+	})
+})
+
+
+function cdn(url:string):string{
+	return ossUrl + url
+}
+
+</script>
+
+<template>
+	<view class="content">
+		<view class="content_box" :style="content_style">
+			<swiper class="ad-swiper" :vertical="false" :circular="true" :autoplay="false">
+				<swiper-item v-for="ad in state.adList" :key="ad.data.id">
+					<!-- 视频广告 -->
+					<template v-if="ad.data.type == 'video'" >
+						<video class="swiper-video" :src="ad.path" />
+					</template>
+					<!-- 图片广告 -->
+					<template v-if="ad.data.type == 'image'">
+						<image class="swiper-img" :src="ad.path" />
+					</template>
+				</swiper-item>
+			</swiper>
+		</view>
+	</view>
+</template>
+
+<style lang="scss">
+.content{
+	flex:1;
+	background-color: pink;
+	align-items: center;
+	justify-content: center;
+	.content_box{
+		background-color: palegoldenrod;
+		.ad-swiper{
+			height: 100%;
+			width: 100%;
+			background-color: skyblue;
+			.swiper-img{
+				height: 100%;
+				width: 100%;
+			}
+			.swiper-video{
+				height: 100%;
+				width: 100%;
+			}
+		}
+	}
+
+}
+</style>

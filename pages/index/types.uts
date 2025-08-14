@@ -1,0 +1,22 @@
+export type AdItem = {
+	id : number;
+	title : string;
+	src : string;
+	type : 'video'|'image';
+}
+export type State = {
+	adList:dFile[]
+}
+export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess  | null | false
+export type dFile = {
+	data:AdItem;
+	path:string;
+	fileName:string;
+	mediaInfo:GetMediaInfo
+}
+// export interface dFile<T> {
+//   ad:T;
+//   tempFilePath:string;
+//   fileName:string
+// }
+export type DownloadFile = Promise<DownloadFileSuccessCallback | DownloadFileSuccessCallback | dFile | null | undefined | false>
