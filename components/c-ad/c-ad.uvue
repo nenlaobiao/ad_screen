@@ -1,0 +1,62 @@
+<template>
+	<swiper class="ad-swiper" :vertical="false" :circular="true" :autoplay="false" @change="swiperChange">
+		<swiper-item v-for="ad in list" :key="ad.data.id">
+			<!-- 视频广告 -->
+			<template v-if="ad.data.type == 'video'">
+				<video class="swiper-video" :src="ad.path" object-fit="contain" />
+			</template>
+			<!-- 图片广告 -->
+			<template v-if="ad.data.type == 'image'">
+				<image class="swiper-img" :src="ad.path" mode="aspectFit" />
+			</template>
+		</swiper-item>
+	</swiper>
+</template>
+
+<script setup>
+	import type { AdItem, dFile } from '@/pages/index/types.uts'
+	import type { Props, Emits ,AdChange,AdFit} from "./types.uts"
+	
+	const props = defineProps({
+	  list: {
+	    type: Array as PropType<dFile[]>,
+	    default: () => []  // 数组/对象必须用函数返回
+	  },
+	  fit: {
+	    type: String as PropType<AdFit>,
+	    default: 'cover'
+	  }
+	})
+	const emits = defineEmits<{
+		(e:"change",event:AdChange) :void
+	}>()
+	
+	function swiperChange(e :UniSwiperChangeEvent){
+		let detail = e.detail
+		// console.log('swiperChange',e)
+		emits('change',{
+			id:props.list[detail.current].data.id,
+			index:detail.current,
+			type:detail.source,
+			isPlay:false
+		})
+	}
+</script>
+
+<style lang="scss">
+	.ad-swiper {
+		height: 100%;
+		width: 100%;
+		background-color: skyblue;
+
+		.swiper-img {
+			height: 100%;
+			width: 100%;
+		}
+
+		.swiper-video {
+			height: 100%;
+			width: 100%;
+		}
+	}
+</style>

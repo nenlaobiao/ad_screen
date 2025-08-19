@@ -1,4 +1,4 @@
-import type { AdItem, dFile, GetMediaInfo } from './types.uts'
+import type { AdItem, dFile, GetMediaInfo } from '@/pages/index/types.uts'
 
 const AD_CACHE_KEY = "ADcatch"
 

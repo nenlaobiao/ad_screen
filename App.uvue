@@ -1,4 +1,5 @@
 <script lang="uts">
+	import {setFullscreen } from "@/utils/tools.uts"
 	let firstBackTime = 0
 	export default {
 		onLaunch: function () {
@@ -6,6 +7,7 @@
 		},
 		onShow: function () {
 			console.log('App Show')
+			setFullscreen(true)
 		},
 		onHide: function () {
 			console.log('App Hide')

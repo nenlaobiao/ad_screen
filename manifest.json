@@ -50,7 +50,11 @@
 	},
 	"app-android": {
 		"distribute": {
-			"modules": {},
+			"modules": {
+				"uni-location": {
+					"system": {}
+				}
+			},
 			"icons": {
 				"hdpi": "static/logo/72.png",
 				"xhdpi": "static/logo/96.png",
@@ -59,7 +63,13 @@
 			},
 			"splashScreens": {
 				"default": {}
-			}
+			},
+			"abiFilters": [
+				"armeabi-v7a",
+				"arm64-v8a",
+				"x86",
+				"x86_64"
+			]
 		}
 	},
 	"app-ios": {
@@ -69,6 +79,22 @@
 				"appstore": "static/logo/1024.png"
 			},
 			"splashScreens": {}
+		}
+	},
+	"app-harmony": {
+		"distribute": {
+			"icons": {
+				"foreground": "D:/My/MyCode/ad_screen/static/logo/1024.png",
+				"background": "D:/My/MyCode/ad_screen/static/logo/1024.png"
+			},
+			"splashScreens": {
+				"startWindowIcon": "D:/My/MyCode/ad_screen/static/logo/192.png"
+			},
+			"modules": {
+				"uni-location": {
+					"system": {}
+				}
+			}
 		}
 	}
 }

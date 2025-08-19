@@ -1,83 +1,111 @@
 <script setup lang="uts">
-import type { AdItem ,State} from './types.uts'
-import fileManage , {ossUrl} from "./file.uts"
+import type { AdItem ,State,dFile} from './types.uts'
+import fileManage , {ossUrl} from "@/utils/file.uts"
+import type { AdChange } from '@/components/c-ad/types.uts'
 const device = uni.getWindowInfo()
-console.log('device',device)
 const content_style ={ 
-	height:`${device.screenWidth}px`,
-	width:`${device.screenWidth*1.2}px`
+	height:`${device.screenHeight}px`,
+	width:`${device.screenHeight*1.25}px`
 }
 
 const adData :AdItem []= [
 	{
-		id:0,
-		title:'广告0',
-		src:'/storage/adtest/20250701/77be24aa24b7fd99ee342c2f31211b0f.mp4',
-		type:'video'
+		id : 1,
+		title : '视频1',
+		src : '/storage/adtest/20250701/35f9d4cd70cc915667a6889997cecbf7.mp4',
+		type : 'video'
 	},
 	{
-		id:1,
-		title:'广告1',
-		src:'/storage/adtest/20250701/9258ed6f22a6320cb61e56d152653918.jpg',
-		type:'image'
+		id : 2,
+		title : '图片2',
+		src : '/storage/adtest/20250701/9258ed6f22a6320cb61e56d152653918.jpg',
+		type : 'image'
 	},
 	{
-		id:2,
-		title:'广告2',
-		src:'/storage/adtest/20250701/87e204694fb730b84574d108a9b954b3.mp4',
-		type:'video'
+		id : 3,
+		title : '视频3',
+		src : '/storage/adtest/20250422/4f0b8a44566c352f97d2e4827305fffc.mp4',
+		type : 'video'
 	},
 	{
-		id:3,
-		title:'广告3',
-		src:'/storage/adtest/20250701/ed58d52141f973ebf38f5a4188001291.jpg',
-		type:'image'
+		id : 4,
+		title : '图片4',
+		src : '/storage/adtest/20250422/467e1292eaad45241da2cc2c08a88ca0.jpg',
+		type : 'image'
 	},
 	{
-		id:4,
-		title:'广告4',
-		src:'/storage/adtest/20250701/35f9d4cd70cc915667a6889997cecbf7.mp4',
-		type:'video'
+		id : 5,
+		title : '视频5',
+		src : '/storage/adtest/20250422/529b42daafb97fe3ee6419dc018e83d0.mp4',
+		type : 'video'
 	},
 	{
-		id:5,
-		title:'广告5',
-		src:'/storage/adtest/20250701/af316ec1c4f76b31ef9160e5c526029e.jpg',
-		type:'image'
+		id : 6,
+		title : '图片6',
+		src : '/storage/adtest/20250422/a0e2ae4ee9ef536b5a13363899d8f47d.jpg',
+		type : 'image'
 	},
+	{
+		id : 7,
+		title : '视频7',
+		src : '/storage/adtest/20250422/5856e3bed8a9d2ce1d7071f42610c3be.mp4',
+		type : 'video'
+	},
+	{
+		id : 8,
+		title : '图片8',
+		src : '/storage/adtest/20250422/3f35affead1aa8d1de4e97ec74f47841.jpg',
+		type : 'image'
+	},
+	{
+		id : 9,
+		title : '视频9',
+		src : '/storage/adtest/20250422/76eac0e97ccdd564c986cb8c94db39aa.mp4',
+		type : 'video'
+	},
+	{
+		id : 10,
+		title : '图片10',
+		src : '/storage/adtest/20250422/c049dbbbc59f1344743de1a7ca7ffcde.jpg',
+		type : 'image'
+	},
+	{
+		id : 11,
+		title : '视频11',
+		src : '/storage/adtest/20250422/faa37ff709d15ae2dac610cae67b7d8d.mp4',
+		type : 'video'
+	},
+	{
+		id : 12,
+		title : '图片12',
+		src : '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
+		type : 'image'
+	}
 ]
 const state = reactive<State>({
-	adList:[]
+	adList:[],
+	fullscreen:false,
 })
+
 onLoad(()=>{
-	fileManage(adData).then(res=>{
-		console.log('fileManage',res)
+	fileManage(adData).then((res:dFile[])=>{
 		state.adList = res
 	})
 })
 
-
 function cdn(url:string):string{
 	return ossUrl + url
+}
+function adChange(e :any){
+	console.log('adChange',e as AdChange)
 }
 
 </script>
 
 <template>
 	<view class="content">
-		<view class="content_box" :style="content_style">
-			<swiper class="ad-swiper" :vertical="false" :circular="true" :autoplay="false">
-				<swiper-item v-for="ad in state.adList" :key="ad.data.id">
-					<!-- 视频广告 -->
-					<template v-if="ad.data.type == 'video'" >
-						<video class="swiper-video" :src="ad.path" />
-					</template>
-					<!-- 图片广告 -->
-					<template v-if="ad.data.type == 'image'">
-						<image class="swiper-img" :src="ad.path" />
-					</template>
-				</swiper-item>
-			</swiper>
+		<view class="content_box" :style="content_style" >
+			<c-ad :list="state.adList" fit="cover" @change="adChange"/>
 		</view>
 	</view>
 </template>
@@ -90,19 +118,6 @@ function cdn(url:string):string{
 	justify-content: center;
 	.content_box{
 		background-color: palegoldenrod;
-		.ad-swiper{
-			height: 100%;
-			width: 100%;
-			background-color: skyblue;
-			.swiper-img{
-				height: 100%;
-				width: 100%;
-			}
-			.swiper-video{
-				height: 100%;
-				width: 100%;
-			}
-		}
 	}
 
 }

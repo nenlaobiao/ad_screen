@@ -1,0 +1,19 @@
+import type { dFile} from '@/pages/index/types.uts'
+
+export type AdFit = "contain" | "fill" | "cover"
+
+export type Props ={
+	list:dFile[],
+	dit: AdFit
+}
+
+export type AdChange = {
+	id: number;
+	index:number;
+	type: "touch" | "autoplay"
+	isPlay: boolean
+}
+
+export type Emits ={
+		(e:"change",event:AdChange) :void
+	}

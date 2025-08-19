@@ -1,0 +1,46 @@
+// fullscreen.uts
+// #ifdef APP-ANDROID
+import WindowManager from 'android.view.WindowManager';
+import Build from 'android.os.Build';
+import WindowInsets from 'android.view.WindowInsets';
+import WindowInsetsController from 'android.view.WindowInsetsController';
+// #endif
+
+export function setFullscreen(full: boolean) {
+    // #ifdef APP-ANDROID
+    let activity = UTSAndroid.getUniActivity()!;
+    let window = activity.getWindow();
+
+    if (Build.VERSION.SDK_INT >= 30) {
+        let controller = window.getInsetsController();
+        if (controller != null) {
+            if (full) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                );
+            } else {
+                // 恢复默认行为
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_DEFAULT);
+                controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+            }
+        }
+    } else {
+        if (full) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+            );
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+    }
+    // #endif
+
+    // #ifdef APP-IOS
+    import UIKit;
+    UIApplication.sharedApplication().setStatusBarHidden(full, true);
+    // iOS 13+ 要在 Info.plist 配置 UIViewControllerBasedStatusBarAppearance = NO
+    // 或重写 prefersStatusBarHidden
+    // #endif
+}

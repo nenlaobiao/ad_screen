@@ -5,7 +5,8 @@ export type AdItem = {
 	type : 'video'|'image';
 }
 export type State = {
-	adList:dFile[]
+	adList:dFile[];
+	fullscreen:boolean
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess  | null | false
 export type dFile = {
