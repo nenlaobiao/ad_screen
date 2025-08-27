@@ -7,7 +7,7 @@ export type Props ={
 	dit: AdFit
 }
 
-export type AdChange = {
+export type CAdChange = {
 	id: number;
 	index:number;
 	type: "touch" | "autoplay"

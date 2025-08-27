@@ -1,134 +1,150 @@
 <script setup lang="uts">
-import type { AdItem ,State,dFile} from './types.uts'
-import fileManage , {ossUrl} from "@/utils/file.uts"
-import type { AdChange } from '@/components/c-ad/types.uts'
-const device = uni.getWindowInfo()
-const content_style ={ 
-	height:`${device.screenHeight}px`,
-	width:`${device.screenHeight*1.25}px`
-}
-
-const adData :AdItem []= [
-	{
-		id : 1,
-		title : '视频1',
-		src : '/storage/adtest/20250701/35f9d4cd70cc915667a6889997cecbf7.mp4',
-		type : 'video'
-	},
-	{
-		id : 2,
-		title : '图片2',
-		src : '/storage/adtest/20250701/9258ed6f22a6320cb61e56d152653918.jpg',
-		type : 'image'
-	},
-	{
-		id : 3,
-		title : '视频3',
-		src : '/storage/adtest/20250422/4f0b8a44566c352f97d2e4827305fffc.mp4',
-		type : 'video'
-	},
-	{
-		id : 4,
-		title : '图片4',
-		src : '/storage/adtest/20250422/467e1292eaad45241da2cc2c08a88ca0.jpg',
-		type : 'image'
-	},
-	{
-		id : 5,
-		title : '视频5',
-		src : '/storage/adtest/20250422/529b42daafb97fe3ee6419dc018e83d0.mp4',
-		type : 'video'
-	},
-	{
-		id : 6,
-		title : '图片6',
-		src : '/storage/adtest/20250422/a0e2ae4ee9ef536b5a13363899d8f47d.jpg',
-		type : 'image'
-	},
-	{
-		id : 7,
-		title : '视频7',
-		src : '/storage/adtest/20250422/5856e3bed8a9d2ce1d7071f42610c3be.mp4',
-		type : 'video'
-	},
-	{
-		id : 8,
-		title : '图片8',
-		src : '/storage/adtest/20250422/3f35affead1aa8d1de4e97ec74f47841.jpg',
-		type : 'image'
-	},
-	{
-		id : 9,
-		title : '视频9',
-		src : '/storage/adtest/20250422/76eac0e97ccdd564c986cb8c94db39aa.mp4',
-		type : 'video'
-	},
-	{
-		id : 10,
-		title : '图片10',
-		src : '/storage/adtest/20250422/c049dbbbc59f1344743de1a7ca7ffcde.jpg',
-		type : 'image'
-	},
-	{
-		id : 11,
-		title : '视频11',
-		src : '/storage/adtest/20250422/faa37ff709d15ae2dac610cae67b7d8d.mp4',
-		type : 'video'
-	},
-	{
-		id : 12,
-		title : '图片12',
-		src : '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
-		type : 'image'
-	}
-]
-const state = reactive<State>({
-	adList:[],
-	fullscreen:false,
-})
-
-onLoad(()=>{
-	fileManage(adData).then((res:dFile[])=>{
-		state.adList = res
+	import type { AdItem, State, dFile } from './types.uts'
+	import fileManage, { ossUrl } from "@/utils/file.uts"
+	import type { CAdChange } from '@/components/c-ad/types.uts'
+	const scale = ref(1)
+	const adData : AdItem[] = [
+		{
+			id: 1,
+			title: '视频1',
+			src: '/storage/adtest/20250701/35f9d4cd70cc915667a6889997cecbf7.mp4',
+			type: 'video'
+		},
+		{
+			id: 2,
+			title: '图片2',
+			src: '/storage/adtest/20250701/9258ed6f22a6320cb61e56d152653918.jpg',
+			type: 'image'
+		},
+		{
+			id: 3,
+			title: '视频3',
+			src: '/storage/adtest/20250422/4f0b8a44566c352f97d2e4827305fffc.mp4',
+			type: 'video'
+		},
+		{
+			id: 4,
+			title: '图片4',
+			src: '/storage/adtest/20250422/467e1292eaad45241da2cc2c08a88ca0.jpg',
+			type: 'image'
+		},
+		{
+			id: 5,
+			title: '视频5',
+			src: '/storage/adtest/20250422/529b42daafb97fe3ee6419dc018e83d0.mp4',
+			type: 'video'
+		},
+		{
+			id: 6,
+			title: '图片6',
+			src: '/storage/adtest/20250422/a0e2ae4ee9ef536b5a13363899d8f47d.jpg',
+			type: 'image'
+		},
+		{
+			id: 7,
+			title: '视频7',
+			src: '/storage/adtest/20250422/5856e3bed8a9d2ce1d7071f42610c3be.mp4',
+			type: 'video'
+		},
+		{
+			id: 8,
+			title: '图片8',
+			src: '/storage/adtest/20250422/3f35affead1aa8d1de4e97ec74f47841.jpg',
+			type: 'image'
+		},
+		{
+			id: 9,
+			title: '视频9',
+			src: '/storage/adtest/20250422/76eac0e97ccdd564c986cb8c94db39aa.mp4',
+			type: 'video'
+		},
+		{
+			id: 10,
+			title: '图片10',
+			src: '/storage/adtest/20250422/c049dbbbc59f1344743de1a7ca7ffcde.jpg',
+			type: 'image'
+		},
+		{
+			id: 11,
+			title: '视频11',
+			src: '/storage/adtest/20250422/faa37ff709d15ae2dac610cae67b7d8d.mp4',
+			type: 'video'
+		},
+		{
+			id: 12,
+			title: '图片12',
+			src: '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
+			type: 'image'
+		}
+	]
+	const state = reactive<State>({
+		adList: [],
+		fullscreen: false,
 	})
-})
 
-function cdn(url:string):string{
-	return ossUrl + url
-}
-function adChange(e :any){
-	console.log('adChange',e as AdChange)
-}
-
+	function computedSize():void {
+		const windowInfo = uni.getWindowInfo()
+		const screenW = windowInfo.screenWidth
+		const screenH = windowInfo.screenHeight
+		// 子盒子设计尺寸
+		const designW = screenW/750 * 1920
+		const designH = screenW/750 * 1080
+		// 取最小值，等比缩放
+		scale.value = Math.min(screenW / designW, screenH / designH)
+	}
+	function cdn(url : string) : string {
+		return ossUrl + url
+	}
+	function adChange(e : any) {
+		console.log('adChange', e as CAdChange)
+	}
+	
+	onLoad(() => {
+		computedSize()
+		fileManage(adData).then((res : dFile[]) => {
+			state.adList = res
+		})
+	})
 </script>
 
 <template>
 	<view class="content">
 		<image class="content-img" src="/static/BG/BG.png" />
-		<view class="content_box" :style="content_style" >
-			<c-ad :list="state.adList" fit="cover" @change="adChange"/>
+		<c-temp :water="10" />
+		<view class="content_box" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
+			111111
+			<!-- <c-ad :list="state.adList" fit="cover" @change="adChange"/> -->
 		</view>
 	</view>
 </template>
 
 <style lang="scss">
-.content{
-	flex:1;
-	width: 100%;
-	background-color: #B8E3FA;
-	align-items: center;
-	justify-content: center;
-	position: relative;
-	.content-img{
-		position: absolute;
-		top: 0rpx;
-		left: 0rpx;
+	.content {
+		flex: 1;
 		width: 100%;
-		height: 100%;
-	}
-	.content_box{
-		background-color: palegoldenrod;
-	}
+		background-color: #B8E3FA;
+		align-items: center;
+		justify-content: center;
+		position: relative;
 
-}
+		.content-img {
+			position: absolute;
+			top: 0rpx;
+			left: 0rpx;
+			width: 100%;
+			height: 100%;
+		}
+
+		.content_box {
+			width: 1920rpx;
+			/* 如果你设计图是 1920px，可以用 px */
+			height: 1080rpx;
+			background: lightblue;
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform-origin: center;
+		}
+
+	}
 </style>

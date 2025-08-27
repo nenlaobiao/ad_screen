@@ -1,4 +1,3 @@
-// fullscreen.uts
 // #ifdef APP-ANDROID
 import WindowManager from 'android.view.WindowManager';
 import Build from 'android.os.Build';

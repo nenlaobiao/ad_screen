@@ -15,7 +15,7 @@
 
 <script setup>
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
-	import type { Props, Emits ,AdChange,AdFit} from "./types.uts"
+	import type { Props, Emits ,CAdChange,AdFit} from "./types.uts"
 	
 	const props = defineProps({
 	  list: {
@@ -28,7 +28,7 @@
 	  }
 	})
 	const emits = defineEmits<{
-		(e:"change",event:AdChange) :void
+		(e:"change",event:CAdChange) :void
 	}>()
 	
 	function swiperChange(e :UniSwiperChangeEvent){
