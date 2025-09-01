@@ -3,18 +3,18 @@
 		<view class="tempBox-item">
 			<image class="tempBox-item-icon" src="/static/icon/room.png" />
 			<view class="tempBox-item-box">
-				<text class="tempBox-item-text"> 室温： </text>
+				<text class="tempBox-item-text-bold"> 室温： </text>
 				<text class="tempBox-item-text-bold">{{ cage}}</text>
-				<text class="tempBox-item-text"> ℃ </text>
+				<text class="tempBox-item-text-bold"> ℃ </text>
 			</view>
 		</view>
 		<view class="line"/>
 		<view class="tempBox-item">
 			<image class="tempBox-item-icon" src="/static/icon/water.png" />
 			<view class="tempBox-item-box">
-				<text class="tempBox-item-text"> 水温：</text>
+				<text class="tempBox-item-text-bold"> 水温：</text>
 				<text class="tempBox-item-text-bold">{{ water }}</text>
-				<text class="tempBox-item-text"> ℃ </text>
+				<text class="tempBox-item-text-bold"> ℃ </text>
 			</view>
 		</view>
 	</view>
@@ -47,12 +47,15 @@ const props = defineProps({
 	width: 118rpx;   /* 404px */
 	height: 16rpx;   /* 53px */
 	border-radius: 10rpx;  /* 33px */
+	
+	box-shadow: 1rpx 1rpx 4rpx 2rpx rgba(100, 100, 100, 0.15);
+
 
 	.line {
 		height: 6rpx;   /* 20px */
-		width: 1rpx;    /* 2px */
-		transform: scaleX(0.5);
-		background-color: #236E99;
+		width: 2rpx;    /* 2px */
+		transform: scaleX(0.4);
+		background-color: rgba( 35,110,153,0.5);
 	}
 
 	.tempBox-item {
@@ -78,11 +81,13 @@ const props = defineProps({
 		.tempBox-item-text {
 			color: #2E87B5;
 			font-size: 6rpx;  /* 22px */
+			text-align: center;
 		}
 		.tempBox-item-text-bold {
 			font-weight: bold;
 			color: #2E87B5;
 			font-size: 6rpx;  /* 22px */
+			text-align: center;
 		}
 	}
 }

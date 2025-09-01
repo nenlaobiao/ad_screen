@@ -1,9 +1,17 @@
 <script setup lang="uts">
+	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
-	import type { CAdChange } from '@/components/c-ad/types.uts'
+	// import API from '@/api/index.uts'
+
 	const scale = ref(1)
 	const adData : AdItem[] = [
+		{
+			id: 12,
+			title: '图片12',
+			src: '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
+			type: 'image'
+		},
 		{
 			id: 1,
 			title: '视频1',
@@ -69,12 +77,6 @@
 			title: '视频11',
 			src: '/storage/adtest/20250422/faa37ff709d15ae2dac610cae67b7d8d.mp4',
 			type: 'video'
-		},
-		{
-			id: 12,
-			title: '图片12',
-			src: '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
-			type: 'image'
 		}
 	]
 	const state = reactive<State>({
@@ -82,13 +84,13 @@
 		fullscreen: false,
 	})
 
-	function computedSize():void {
+	function computedSize() : void {
 		const windowInfo = uni.getWindowInfo()
 		const screenW = windowInfo.screenWidth
 		const screenH = windowInfo.screenHeight
 		// 子盒子设计尺寸
-		const designW = screenW/750 * 1920
-		const designH = screenW/750 * 1080
+		const designW = screenW / 750 * 750
+		const designH = screenW / 750 * 326
 		// 取最小值，等比缩放
 		scale.value = Math.min(screenW / designW, screenH / designH)
 	}
@@ -98,8 +100,19 @@
 	function adChange(e : any) {
 		console.log('adChange', e as CAdChange)
 	}
-	
+	async function getTemplate(){
+		// let res = await API.getTemplate()
+		// 	console.log('getTemplate',res)
+		// if(res&& res?.error && res.error! ==0){
+			// let templateData = res.data.template.home.data
+			// let goodsClass = templateData.find(obj => obj.type =='goodsClass')
+			// let ids = goodsClass.data.templateList[0].goodsIds
+			// let adids = ids.slice(0,4).join(',')
+			// console.log('adids',adids)
+		// }
+	}
 	onLoad(() => {
+		getTemplate()
 		computedSize()
 		fileManage(adData).then((res : dFile[]) => {
 			state.adList = res
@@ -109,12 +122,24 @@
 
 <template>
 	<view class="content">
-		<image class="content-img" src="/static/BG/BG.png" />
+		<image class="content-bg" src="/static/BG/BG.png" />
+		<!-- 左上角温度监控 -->
 		<c-temp :water="10" />
-		<view class="content_box" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
-			111111
-			<!-- <c-ad :list="state.adList" fit="cover" @change="adChange"/> -->
+		<view class="content-box" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
+			<!-- 左侧广告 -->
+			<view class="adBox">
+				<image class="adBox-bg" src="/static/BG/adbg.png" />
+				<view class="adBox-box">
+					<c-ad :list="state.adList" fit="cover" @change="adChange" />
+					<image v-if="state.adList.length == 0 " class="adBox-empty" src="/static/temporaryAD.jpg" />
+				</view>
+				<view class="adBox-border" />
+			</view>
+			
+			
 		</view>
+		<!-- 底部状态栏 -->
+		<c-statusbar />
 	</view>
 </template>
 
@@ -127,24 +152,67 @@
 		justify-content: center;
 		position: relative;
 
-		.content-img {
+		.content-bg {
 			position: absolute;
 			top: 0rpx;
 			left: 0rpx;
 			width: 100%;
 			height: 100%;
 		}
-
-		.content_box {
-			width: 1920rpx;
-			/* 如果你设计图是 1920px，可以用 px */
-			height: 1080rpx;
-			background: lightblue;
+		
+		// ---------主内容区-----------
+		.content-box {
+			width: 750rpx;
+			height: 326rpx;
+			background: lightskyblue;
 			position: absolute;
 			top: 50%;
 			left: 50%;
 			transform-origin: center;
-		}
+			//  ---------- 左侧广告---------
+			.adBox {
+				width: 377rpx;
+				height: 278rpx;
+				padding: 6rpx 4rpx;
+				position: relative;
+				left: 13rpx;
+				top: 21rpx;
+				
+				.adBox-bg {
+					position: absolute;
+					top: 0rpx;
+					left: 0rpx;
+					width: 100%;
+					height: 100%;
+				}
 
+				.adBox-border {
+					position: absolute;
+					border-radius: 26rpx;
+					border: 9rpx solid #fff;
+					width: calc(377rpx - 8rpx);
+					height: calc(278rpx - 12rpx);
+					pointer-events: none;
+				}
+
+				.adBox-box {
+					position: relative;
+					background: #B8E3FA;
+					border-radius: 26rpx;
+					border: 9rpx solid #fff;
+					width: 100%;
+					height: 100%;
+
+					.adBox-empty {
+						position: absolute;
+						top: 0rpx;
+						left: 0rpx;
+						width: 100%;
+						height: 100%;
+					}
+				}
+			}
+
+		}
 	}
 </style>
