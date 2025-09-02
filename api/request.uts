@@ -59,7 +59,7 @@ function request(config : RequestConfig) : Promise<ResponseData> {
 								});
 							}
 						}
-						resolve(data!);
+						resolve(data);
 					} else {
 						if (config.custom != null) {
 							if (config.custom.showError == true && data?.msg != null) {
