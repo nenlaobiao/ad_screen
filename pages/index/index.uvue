@@ -1,6 +1,7 @@
 <script setup lang="uts">
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
+	import type { TempObject} from '@/api/types.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
 	import  API ,{getTemplate} from '@/api/index.uts'
 	import type { ResponseData} from '@/api/request.uts';
@@ -103,17 +104,25 @@
 	async function getTemplateFn(){
 		try {
 			let res = await API.getTemplate()
-			console.log('getTemplate --- 请求成功',res)
+			if(res.error == 0 ){
+				let resData = UTSJSONObject.assign<TempObject>(res.data as UTSJSONObject)
+				let templateData = resData?.template.home.data
+				console.log('adids',templateData)
+				if(templateData != null){
+					let goodsClass = templateData.find(obj => obj.type =='goodsClass')
+					console.log('goodsClass',goodsClass)
+				}
+				
+				
+				// let templateData = res.data.template.home.data
+				// let goodsClass = templateData.find(obj => obj.type =='goodsClass')
+				// let ids = goodsClass.data.templateList[0].goodsIds
+				// let adids = ids.slice(0,4).join(',')
+				// console.log('adids',adids)
+			}
 		} catch (error) {
 			console.log('getTemplate --- 请求失败',error)
 		}
-		// if(res&& res?.error && res.error! ==0){
-			// let templateData = res.data.template.home.data
-			// let goodsClass = templateData.find(obj => obj.type =='goodsClass')
-			// let ids = goodsClass.data.templateList[0].goodsIds
-			// let adids = ids.slice(0,4).join(',')
-			// console.log('adids',adids)
-		// }
 	}
 	onLoad(() => {
 		getTemplateFn()

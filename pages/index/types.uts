@@ -9,6 +9,7 @@ export type State = {
 	fullscreen:boolean
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess  | null | false
+
 export type dFile = {
 	data:AdItem;
 	path:string;

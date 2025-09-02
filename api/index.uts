@@ -3,7 +3,8 @@ import type {  RequestConfig ,ResponseData} from './request.uts';
 import { baseUrl } from "@/config.uts";
 
 type API = {
-	getTemplate:()=> Promise<ResponseData>
+	getTemplate:()=> Promise<ResponseData>;
+	getGoodsInfo:(params:UTSJSONObject)=> Promise<ResponseData>;
 }
 const api:API = { 
 	getTemplate:()=>
@@ -11,7 +12,13 @@ const api:API = {
 		  url: '/shop/api/init',
 		  method: 'GET',
 		  header: { platform: 'App' }
-		} as RequestConfig),
+		}),
+	getGoodsInfo: (params: UTSJSONObject) =>
+	  request({
+	    url: '/shop/api/goods/goods/ids',
+	    method: 'GET',
+	    data: params
+	  }),
   // checkeStatus: (data: any) =>
   //   request({
   //     url: '/shop/api/pet/order/checkeStatus',
@@ -25,12 +32,7 @@ const api:API = {
   //     method: 'POST',
   //     data: data != null ? data : {}
   //   }),
-  // getGoodsInfo: (params: any) =>
-  //   request({
-  //     url: '/shop/api/goods/goods/ids',
-  //     method: 'GET',
-  //     data: params != null ? params : {}
-  //   }),
+
 
   // imageAI: (data: any) =>
   //   request({
