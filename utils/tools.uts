@@ -18,3 +18,26 @@ export function toBoolean(value:any):boolean{
 	// 对象、数组 → true
 	return true;
 }
+
+export function getErrorMsg(code:number):string{
+	let strCode = `${code}`
+	const errorMessageMap = {
+	  '400': '请求错误',
+	  '401': '请先登录', // 登录状态会单独判断
+	  '403': '拒绝访问',
+	  '404': '请求出错',
+	  '408': '请求超时',
+	  '429': '请求频繁, 请稍后再访问',
+	  '500': '服务器开小差啦,请稍后再试~',
+	  '501': '服务未实现',
+	  '502': '网络错误',
+	  '503': '服务不可用',
+	  '504': '网络超时',
+	  '505': 'HTTP版本不受支持',
+	};
+	if(UTSJSONObject.keys(errorMessageMap).includes(strCode)){
+		return errorMessageMap[strCode] as string
+	}else{
+		return `网络请求错误:${strCode}`
+	}
+}

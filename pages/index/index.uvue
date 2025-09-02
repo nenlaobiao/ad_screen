@@ -2,8 +2,8 @@
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
-	// import API from '@/api/index.uts'
-
+	import  API ,{getTemplate} from '@/api/index.uts'
+	import type { ResponseData} from '@/api/request.uts';
 	const scale = ref(1)
 	const adData : AdItem[] = [
 		{
@@ -100,9 +100,13 @@
 	function adChange(e : any) {
 		console.log('adChange', e as CAdChange)
 	}
-	async function getTemplate(){
-		// let res = await API.getTemplate()
-		// 	console.log('getTemplate',res)
+	async function getTemplateFn(){
+		try {
+			let res = await API.getTemplate()
+			console.log('getTemplate --- 请求成功',res)
+		} catch (error) {
+			console.log('getTemplate --- 请求失败',error)
+		}
 		// if(res&& res?.error && res.error! ==0){
 			// let templateData = res.data.template.home.data
 			// let goodsClass = templateData.find(obj => obj.type =='goodsClass')
@@ -112,7 +116,7 @@
 		// }
 	}
 	onLoad(() => {
-		getTemplate()
+		getTemplateFn()
 		computedSize()
 		fileManage(adData).then((res : dFile[]) => {
 			state.adList = res
