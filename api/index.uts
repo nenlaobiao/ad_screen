@@ -1,92 +1,98 @@
-import { request , type RequestConfig } from './request.uts';
+import { request } from './request.uts';
+import type {  RequestConfig ,ResponseData} from './request.uts';
 import { baseUrl } from "@/config.uts";
 
-export default { 
-  checkeStatus: (data: any) =>
-    request({
-      url: '/shop/api/pet/order/checkeStatus',
-      method: 'GET',
-      data: data != null ? data : {}
-    }),
+type API = {
+	getTemplate:()=> Promise<ResponseData>;
+	getGoodsInfo:(params:UTSJSONObject)=> Promise<ResponseData>;
+}
+const api:API = { 
+	getTemplate:()=>
+		request({
+		  url: '/shop/api/init',
+		  method: 'GET',
+		  header: { platform: 'App' }
+		}),
+	getGoodsInfo: (params: UTSJSONObject) =>
+	  request({
+	    url: '/shop/api/goods/goods/ids',
+	    method: 'GET',
+	    data: params
+	  }),
+  // checkeStatus: (data: any) =>
+  //   request({
+  //     url: '/shop/api/pet/order/checkeStatus',
+  //     method: 'GET',
+  //     data: data != null ? data : {}
+  //   }),
 
-  sendSMS: (data: any) =>
-    request({
-      url: '/device/api/index/sms',
-      method: 'POST',
-      data: data != null ? data : {}
-    }),
+  // sendSMS: (data: any) =>
+  //   request({
+  //     url: '/device/api/index/sms',
+  //     method: 'POST',
+  //     data: data != null ? data : {}
+  //   }),
 
-  getTemplate: () =>
-    request({
-      url: '/shop/api/init',
-      header: { platform: 'App' }
-    }),
 
-  getGoodsInfo: (params: any) =>
-    request({
-      url: '/shop/api/goods/goods/ids',
-      method: 'GET',
-      data: params != null ? params : {}
-    }),
+  // imageAI: (data: any) =>
+  //   request({
+  //     url: '/shop/api/pet/baidu/getInfo',
+  //     method: 'POST',
+  //     data: data != null ? data : {}
+  //   }),
 
-  imageAI: (data: any) =>
-    request({
-      url: '/shop/api/pet/baidu/getInfo',
-      method: 'POST',
-      data: data != null ? data : {}
-    }),
+  // getAccessToken: () =>
+  //   request({
+  //     url: '/shop/api/pet/baidu/getAccessToken',
+  //     method: 'GET'
+  //   }),
 
-  getAccessToken: () =>
-    request({
-      url: '/shop/api/pet/baidu/getAccessToken',
-      method: 'GET'
-    }),
+  // saveScreenshot: (data: any) =>
+  //   request({
+  //     url: '/shop/api/pet/order/saveScreenshot',
+  //     method: 'POST',
+  //     data: data != null ? data : {}
+  //   }),
 
-  saveScreenshot: (data: any) =>
-    request({
-      url: '/shop/api/pet/order/saveScreenshot',
-      method: 'POST',
-      data: data != null ? data : {}
-    }),
+  // deviceInfo: () =>
+  //   request({
+  //     url: '/shop/api/pet/order/deviceInfo',
+  //     method: 'GET'
+  //   }),
 
-  deviceInfo: () =>
-    request({
-      url: '/shop/api/pet/order/deviceInfo',
-      method: 'GET'
-    }),
-
-  upload: (file: string) => {
-    return new Promise((resolve) => {
-      uni.uploadFile({
-        url: baseUrl + '/file/api/upload',
-        filePath: file,
-        name: 'file',
-        header: { Accept: 'text/json' },
-        success: (uploadFileRes) => {
-          let result: any;
-          try {
-            result = JSON.parse(uploadFileRes.data);
-          } catch (e) {
-            console.log('解析 upload 返回失败', uploadFileRes, file);
-            resolve(false);
-            return;
-          }
-          if (result != null && result.error === 0) {
-            resolve(result.data);
-          } else {
-            console.log('upload上传失败', uploadFileRes, file);
-            uni.showToast({
-              icon: 'none',
-              title: result != null ? result.msg : '上传失败'
-            });
-            resolve(false);
-          }
-        },
-        fail: (err) => {
-          console.log('upload失败', err, file);
-          resolve(false);
-        }
-      });
-    });
-  }
+  // upload: (file: string) => {
+  //   return new Promise((resolve) => {
+  //     uni.uploadFile({
+  //       url: baseUrl + '/file/api/upload',
+  //       filePath: file,
+  //       name: 'file',
+  //       header: { Accept: 'text/json' },
+  //       success: (uploadFileRes) => {
+  //         let result: any;
+  //         try {
+  //           result = JSON.parse(uploadFileRes.data);
+  //         } catch (e) {
+  //           console.log('解析 upload 返回失败', uploadFileRes, file);
+  //           resolve(false);
+  //           return;
+  //         }
+  //         if (result != null && result.error === 0) {
+  //           resolve(result.data);
+  //         } else {
+  //           console.log('upload上传失败', uploadFileRes, file);
+  //           uni.showToast({
+  //             icon: 'none',
+  //             title: result != null ? result.msg : '上传失败'
+  //           });
+  //           resolve(false);
+  //         }
+  //       },
+  //       fail: (err) => {
+  //         console.log('upload失败', err, file);
+  //         resolve(false);
+  //       }
+  //     });
+  //   });
+  // }
 };
+export default api
