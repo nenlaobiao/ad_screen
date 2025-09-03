@@ -4,7 +4,7 @@
 			<image class="tempBox-item-icon" src="/static/icon/room.png" />
 			<view class="tempBox-item-box">
 				<text class="tempBox-item-text-bold"> 室温： </text>
-				<text class="tempBox-item-text-bold">{{ cage}}</text>
+				<text class="tempBox-item-text-bold">{{ cage }}</text>
 				<text class="tempBox-item-text-bold"> ℃ </text>
 			</view>
 		</view>

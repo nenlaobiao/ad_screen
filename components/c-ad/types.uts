@@ -15,5 +15,5 @@ export type CAdChange = {
 }
 
 export type Emits ={
-		(e:"change",event:AdChange) :void
+		(e:"change",event:CAdChange) :void
 	}
