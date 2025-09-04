@@ -1,5 +1,5 @@
 <template>
-	<swiper class="ad-swiper" :vertical="false" :circular="true" :autoplay="false" @change="swiperChange">
+	<swiper class="ad-swiper" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
 		<swiper-item v-for="ad in list" :key="ad.data.id">
 			<!-- 视频广告 -->
 			<template v-if="ad.data.type == 'video'">

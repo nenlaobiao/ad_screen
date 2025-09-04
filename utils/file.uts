@@ -197,7 +197,7 @@ export default async function fileManage(list : AdItem[], url:string = 'ad') : P
 	
 	const merged = mergeAndSort(list, [...validCache, ...downloaded])
 
-	console.log(`缓存${validCache.length}项，下载${downloaded.length}项，删除${deletedCount}项`)
+	console.log(`读取缓存${validCache.length}项，下载${downloaded.length}项，删除${deletedCount}项`)
 	uni.setStorageSync(AD_CACHE_KEY, JSON.stringify(merged))
 	return merged
 }

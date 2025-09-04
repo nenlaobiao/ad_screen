@@ -7,7 +7,7 @@
 		},
 		onShow: function () {
 			console.log('App Show')
-			setFullscreen(true)
+			setFullscreen()
 		},
 		onHide: function () {
 			console.log('App Hide')
