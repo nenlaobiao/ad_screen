@@ -1,0 +1,93 @@
+
+
+
+
+// Tab 标签
+export type TabData = {
+  name: string;
+};
+
+// 商品字段（显示与颜色）
+export type GoodsField = {
+  color: string;
+  show: number; // 0/1
+};
+
+// 商品字段集合
+export type GoodsFields = {
+  original_price: GoodsField;
+  price: GoodsField;
+  subtitle: GoodsField;
+  title: GoodsField;
+  stock: GoodsField;
+  sales: GoodsField;
+};
+
+// 标签样式
+export type TagStyle = {
+  src: string;
+  show: number;
+};
+
+// 购买按钮样式
+export type BuyNowStyle = {
+  mode: number;
+  color1: string;
+  color2: string;
+  src: string;
+  text: string;
+  is_show: boolean;
+};
+
+// 模板项
+export type TemplateItem = {
+  mode: number;
+  borderRadiusTop: number;
+  borderRadiusBottom: number;
+  tagStyle: TagStyle;
+  goodsFields: GoodsFields;
+  buyNowStyle: BuyNowStyle;
+  space: number;
+  goodsIds: number[];
+};
+
+// Data 部分
+export type GoodsClassData = {
+  tabData: TabData[];
+  templateList: TemplateItem[];
+  tabIndex: number;
+};
+
+export type GoodsClassTemp = {
+	data: GoodsClassData;
+	style: any;
+	type: string;
+}
+
+// 通用组件模板
+export type CompTemplate = {
+  data: any;
+  style: any;
+  type: string;
+};
+
+
+type HomeTemplate = {
+  data: CompTemplate[];
+  style: any;
+}
+
+type Template = {
+  home: HomeTemplate;
+  index: any;
+  basic: any;
+  user: any;
+}
+// 根对象
+export type TempObject = {
+  template: Template;
+  app: any;
+  chat: any;
+  tmplIds: any;
+  platform: any;
+}

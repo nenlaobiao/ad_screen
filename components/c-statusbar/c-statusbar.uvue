@@ -51,6 +51,7 @@ const props = defineProps({
 		bottom: 0;
 		left: 0;
 		height: 12rpx;
+		z-index: 1;
 		width: 750rpx;
 		background-color: #8FD6F4;
 		display: flex;

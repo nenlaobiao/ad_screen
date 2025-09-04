@@ -1,8 +1,9 @@
 <script setup lang="uts">
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
-	import type { TempObject} from '@/api/types.uts'
+	import type { TempObject,GoodsClassData} from '@/api/tempTypes.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
+	import { toNewObject } from "@/utils/tools.uts"
 	import  API ,{getTemplate} from '@/api/index.uts'
 	import type { ResponseData} from '@/api/request.uts';
 	const scale = ref(1)
@@ -105,12 +106,16 @@
 		try {
 			let res = await API.getTemplate()
 			if(res.error == 0 ){
-				let resData = UTSJSONObject.assign<TempObject>(res.data as UTSJSONObject)
+				let resData = toNewObject<TempObject>(res.data)
 				let templateData = resData?.template.home.data
-				console.log('adids',templateData)
 				if(templateData != null){
-					let goodsClass = templateData.find(obj => obj.type =='goodsClass')
-					console.log('goodsClass',goodsClass)
+					let templateDataItem = templateData.find(obj => obj.type =='goodsClass')
+					if(templateDataItem != null){
+						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
+						let ids = goodsClassData?.templateList[0].goodsIds
+						let adIds = ids?.slice(0,4).map(n=>`${n}`).join(',')
+						console.log('adIds',adIds)
+					}
 				}
 				
 				

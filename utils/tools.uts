@@ -4,7 +4,7 @@
  * @param value 任意输入值
  * @returns boolean
  */
-export function toBoolean(value:any):boolean{
+export function toBoolean(value : any) : boolean {
 	if (value == null) return false;
 	if (typeof value == "boolean") return value;
 	if (typeof value == "number") return value !== 0;
@@ -19,25 +19,41 @@ export function toBoolean(value:any):boolean{
 	return true;
 }
 
-export function getErrorMsg(code:number):string{
+export function getErrorMsg(code : number) : string {
 	let strCode = `${code}`
 	const errorMessageMap = {
-	  '400': '请求错误',
-	  '401': '请先登录', // 登录状态会单独判断
-	  '403': '拒绝访问',
-	  '404': '请求出错',
-	  '408': '请求超时',
-	  '429': '请求频繁, 请稍后再访问',
-	  '500': '服务器开小差啦,请稍后再试~',
-	  '501': '服务未实现',
-	  '502': '网络错误',
-	  '503': '服务不可用',
-	  '504': '网络超时',
-	  '505': 'HTTP版本不受支持',
+		'400': '请求错误',
+		'401': '请先登录', // 登录状态会单独判断
+		'403': '拒绝访问',
+		'404': '请求出错',
+		'408': '请求超时',
+		'429': '请求频繁, 请稍后再访问',
+		'500': '服务器开小差啦,请稍后再试~',
+		'501': '服务未实现',
+		'502': '网络错误',
+		'503': '服务不可用',
+		'504': '网络超时',
+		'505': 'HTTP版本不受支持',
 	};
-	if(UTSJSONObject.keys(errorMessageMap).includes(strCode)){
+	if (UTSJSONObject.keys(errorMessageMap).includes(strCode)) {
 		return errorMessageMap[strCode] as string
-	}else{
+	} else {
 		return `网络请求错误:${strCode}`
 	}
+}
+/**
+ * 将任意对象安全转换为指定类型
+ */
+export function toNewObject<T>(obj: any): T {
+  // 用 UTSJSONObject.assign 保证在 iOS/Android 上的类型兼容
+  return UTSJSONObject.assign<T>(obj as UTSJSONObject)!;
+}
+
+export function showMsg(title : string, duration : number = 1500, mask : boolean = true) {
+	uni.showToast({
+		title,
+		icon: "none",
+		mask,
+		duration,
+	});
 }

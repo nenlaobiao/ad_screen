@@ -1,5 +1,5 @@
 import { baseUrl } from "@/config.uts"
-import { getErrorMsg } from "@/utils/tools.uts"
+import { getErrorMsg,showMsg ,toNewObject} from "@/utils/tools.uts"
 
 // 自定义配置
 type CustomConfig = {
@@ -39,65 +39,56 @@ function request(config : RequestConfig) : Promise<ResponseData> {
 		uni.request({
 			url: (config.url.startsWith("http") ? "" : baseUrl) + config.url,
 			timeout: 20000,
-			method: config.method != null ? config.method : "GET",
-			data: config.data != null ? config.data : (config.params != null ? config.params : {}),
+			method: config.method ?? "GET",
+			data:  config.data ?? ( config.params ?? {}),
 			header: headers,
 			success:(response)=>{
 				let msg:string
 				if (response.statusCode == 200) {
 					// const data = JSON.parse<ResponseData>(JSON.stringify(response.data));
-					const data = UTSJSONObject.assign<ResponseData>(response.data as UTSJSONObject)
+					const data = toNewObject<ResponseData>(response.data!)
 					if (data?.error == 0) {
 						if (config.custom != null) {
 							if (config.custom.showSuccess == true && data.msg != null) {
-								msg = data.msg
-								uni.showToast({
-									title: msg,
-									icon: "none",
-									mask: true,
-									duration: 1500,
-								});
+								showMsg(data.msg)
 							}
 						}
 						resolve(data);
 					} else {
 						if (config.custom != null) {
 							if (config.custom.showError == true && data?.msg != null) {
-								msg = data.msg
-								uni.showToast({
-									title: msg,
-									icon: "none",
-									mask: true,
-									duration: 1500,
-								});
+								showMsg(data.msg)
 							}
 						}
-						reject(data);
+						reject({
+							error: data?.error ?? -1,
+							msg: data?.msg ?? "业务错误",
+							raw: response
+						});
 					}
 				} else {
 					msg = getErrorMsg(response.statusCode)
 					if (config.custom != null && config.custom.showError == true) {
-						uni.showToast({
-							title: msg,
-							icon: "none",
-							mask: true,
-							duration: 1500,
-						});
+						showMsg(msg)
 					}
-					reject(response)
+					reject({
+						error: response.statusCode,
+						msg,
+						raw: response
+					});
 				}
 			},
 			fail:(error)=>{
 				if (config.custom != null) {
 					if (config.custom.showError == true) {
-						uni.showToast({
-							title: error.errMsg,
-							icon: "none",
-							mask: true,
-						});
+						showMsg(error.errMsg)
 					}
 				}
-				reject(error);
+				reject({
+					error: error.errCode,
+					msg:error.errMsg,
+					raw: error
+				});
 			},
 
 		});
