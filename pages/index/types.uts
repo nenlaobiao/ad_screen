@@ -6,7 +6,7 @@ export type AdItem = {
 }
 export type State = {
 	adList:dFile[];
-	fullscreen:boolean
+	goodsList:dFile[];
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess  | null | false
 
@@ -21,4 +21,4 @@ export type dFile = {
 //   tempFilePath:string;
 //   fileName:string
 // }
-export type DownloadFile = Promise<DownloadFileSuccessCallback | DownloadFileSuccessCallback | dFile | null | undefined | false>
+export type DownloadFile = Promise< DownloadFileSuccessCallback | dFile | null | undefined | false>

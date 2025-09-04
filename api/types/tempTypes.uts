@@ -78,10 +78,10 @@ type HomeTemplate = {
 }
 
 type Template = {
-  home: HomeTemplate;
-  index: any;
-  basic: any;
-  user: any;
+  home?: HomeTemplate;
+  index?: any;
+  basic?: any;
+  user?: any;
 }
 // 根对象
 export type TempObject = {

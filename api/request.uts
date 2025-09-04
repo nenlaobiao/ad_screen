@@ -1,29 +1,6 @@
 import { baseUrl } from "@/config.uts"
 import { getErrorMsg,showMsg ,toNewObject} from "@/utils/tools.uts"
-
-// 自定义配置
-type CustomConfig = {
-	showError : boolean;
-	showSuccess : boolean;
-}
-
-// request 参数
-export type RequestConfig = {
-	url : string;
-	method ?: string;
-	data ?: any;    // 不能用索引签名，直接 any
-	params ?: any;
-	header ?: any;
-	custom ?: CustomConfig;
-}
-
-// 返回数据
-export type ResponseData = {
-	error ?: number;
-	msg ?: string;
-	// ❌ 这里不能写 [key: string]: any
-	data : any; // 如果需要扩展，定义一个 data 就行
-}
+import type { ResponseData,RequestConfig } from "@/api/types.uts"
 
 function request(config : RequestConfig) : Promise<ResponseData> {
 	return new Promise((resolve, reject) => {

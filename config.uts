@@ -1,2 +1,5 @@
 
 export const baseUrl:string = "https://cutepet.liuliangbenben.com"
+export const mpQrUrl:string = "https://cutepet.liuliangbenben.com"
+export const QRcodeTool:string = "https://pageandy.liuliangbenben.top/qrcode/build?text="
+

@@ -1,0 +1,80 @@
+<template>
+	<swiper class="goods-swiper" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
+		<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
+			<image class="swiper-img" :src="ad.path" mode="aspectFill" />
+			<view class="goods-info">
+				<text class="goods-info-title">{{ad.data.title}}</text>
+				<text class="goods-info-tips">微信扫码购买</text>
+				<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
+			</view>
+		</swiper-item>
+	</swiper>
+</template>
+
+<script setup>
+	import type { AdItem, dFile } from '@/pages/index/types.uts'
+	import type { Props, Emits ,CAdChange,AdFit} from "./types.uts"
+	import { QRcodeTool , mpQrUrl} from "@/config.uts"
+	
+	const props = defineProps({
+	  list: {
+	    type: Array as PropType<dFile[]>,
+	    default: () => []  // 数组/对象必须用函数返回
+	  }
+	})
+	const emits = defineEmits<{
+		(e:"change",event:CAdChange) :void
+	}>()
+	
+	function goodsQRcode (id:number|string){
+		return QRcodeTool + encodeURIComponent(`${mpQrUrl}/dpGoods/?id=${id}` )
+	}
+	
+	function swiperChange(e :UniSwiperChangeEvent){
+		let detail = e.detail
+		// console.log('swiperChange',e)
+		emits('change',{
+			id:props.list[detail.current].data.id,
+			index:detail.current,
+			type:detail.source,
+			isPlay:false
+		})
+	}
+</script>
+
+<style lang="scss">
+	.goods-swiper {
+		width: 100%;
+		height: 100%;
+		.goods-swiper-item{
+			flex-direction: row;
+			.swiper-img {
+				width: 188rpx;
+				height: 135rpx;
+			}
+			.goods-info{
+				flex:1;
+				padding: 0 6rpx;
+				justify-content: flex-end;
+				align-items: center;
+				.goods-info-title{
+					margin-bottom: 5rpx;
+					font-size: 12rpx;
+					color:#fff;
+					text-overflow: ellipsis;
+					lines: 2;
+				}
+				.goods-info-tips{
+					margin-bottom: 5rpx;
+					font-size:8rpx;
+					color:#fff;
+				}
+				.mpQr{
+					margin-bottom: 8rpx;
+					height: 73rpx;
+					width: 73rpx;
+				}
+			}
+		}
+	}
+</style>

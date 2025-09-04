@@ -1,0 +1,69 @@
+// 单个 SKU 价格信息
+type SkuPrice = {
+  weigh: number
+  image: string
+  create_time: string
+  goods_id: number
+  weight: string
+  goods_sku_ids: string
+  sales: number
+  update_time: string
+  price: string
+  status_text: string
+  id: number
+  sn: string
+  stock: number
+  goods_sku_text: string[]
+  status: string
+}
+
+// 商品主对象
+export type Goods = {
+  original_price: string
+  limit_type: string
+  dispatch_id: number
+  type: string
+  sales: number
+  dispatch_type: string
+  head_user_id: number
+  price: string[]
+  supplier: string
+  id: number
+  category_ids: string
+  stock: number
+  likes: number
+  image: string
+  images: string[]
+  coordinate: string
+  create_time: string
+  is_sku: number
+  stock_show_type: string
+  params: any[]
+  labels: string
+  subtitle: string
+  service_ids: number[]
+  status_text: string
+  status: string
+  weigh: number
+  distance: number
+  is_beautiful_number: number
+  sales_show_type: string
+  title: string
+  hot: number
+  is_offline: number
+  update_time: string
+  new_sku_prices: SkuPrice[]
+  commission: string
+  show_sales: number
+  promos: any[]
+  views: number
+  store_id: number
+  address: string
+  type_text: string
+  favorable_rate: number
+  dispatch_type_text: string
+  is_id_card: number
+  activities: any[]
+  commission_rate: number
+  limit_num: number
+}

@@ -1,16 +1,16 @@
 <script setup lang="uts">
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
-	import type { TempObject,GoodsClassData} from '@/api/tempTypes.uts'
+	import type { TempObject,GoodsClassData} from '@/api/types/tempTypes.uts'
+	import type { Goods} from '@/api/types/goodsTypes.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
 	import { toNewObject } from "@/utils/tools.uts"
 	import  API ,{getTemplate} from '@/api/index.uts'
 	import type { ResponseData} from '@/api/request.uts';
-	const scale = ref(1)
 	const adData : AdItem[] = [
 		{
-			id: 12,
-			title: '图片12',
+			id: 0,
+			title: '图片0',
 			src: '/storage/adtest/20250422/cd522b8bb7e294a9cb9990d758caa547.jpg',
 			type: 'image'
 		},
@@ -82,56 +82,71 @@
 		}
 	]
 	const state = reactive<State>({
-		adList: [],
-		fullscreen: false,
+		adList:[],
+		goodsList:[],
 	})
 
-	function computedSize() : void {
-		const windowInfo = uni.getWindowInfo()
-		const screenW = windowInfo.screenWidth
-		const screenH = windowInfo.screenHeight
-		// 子盒子设计尺寸
-		const designW = screenW / 750 * 750
-		const designH = screenW / 750 * 326
-		// 取最小值，等比缩放
-		scale.value = Math.min(screenW / designW, screenH / designH)
-	}
 	function cdn(url : string) : string {
 		return ossUrl + url
 	}
 	function adChange(e : any) {
 		console.log('adChange', e as CAdChange)
 	}
+	
+	async function getGoodsInfo(ids:string){
+		try {
+			console.log('加载商品推荐')
+			let res = await API.getGoodsInfo({ids})
+			if (res.error == 0) {
+				let goodsData = res.data as Goods[]
+				if(goodsData.length > 0){
+					let goodsAD :AdItem[] =[]
+					for (let i = 0; i < goodsData.length; i++) {
+						let goods = toNewObject<Goods>(goodsData[i])
+						let adItem = {
+							id:goods.id,
+							src:`http://liuliangbenben.oss-cn-hangzhou.aliyuncs.com${goods.image}`,
+							type:'image',
+							title:goods.title,
+						} as AdItem
+						goodsAD.push(adItem)
+					}
+					fileManage(goodsAD,'goods').then((res : dFile[]) => {
+						state.goodsList = res
+					})
+				}
+			}
+		} catch (error) {
+			console.log('getGoodsInfo --- catch',error)
+		}
+	}
+	
 	async function getTemplateFn(){
 		try {
 			let res = await API.getTemplate()
 			if(res.error == 0 ){
 				let resData = toNewObject<TempObject>(res.data)
-				let templateData = resData?.template.home.data
+				let templateData = resData.template?.home.data
 				if(templateData != null){
 					let templateDataItem = templateData.find(obj => obj.type =='goodsClass')
 					if(templateDataItem != null){
 						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
-						let ids = goodsClassData?.templateList[0].goodsIds
-						let adIds = ids?.slice(0,4).map(n=>`${n}`).join(',')
+						let ids = goodsClassData.templateList[0].goodsIds
+						let adIds = ids.slice(0,4).map(n=>`${n}`).join(',')
 						console.log('adIds',adIds)
+						getGoodsInfo(adIds)
 					}
 				}
-				
-				
-				// let templateData = res.data.template.home.data
-				// let goodsClass = templateData.find(obj => obj.type =='goodsClass')
-				// let ids = goodsClass.data.templateList[0].goodsIds
-				// let adids = ids.slice(0,4).join(',')
-				// console.log('adids',adids)
 			}
 		} catch (error) {
 			console.log('getTemplate --- 请求失败',error)
 		}
 	}
+
+	
+	
 	onLoad(() => {
 		getTemplateFn()
-		computedSize()
 		fileManage(adData).then((res : dFile[]) => {
 			state.adList = res
 		})
@@ -143,7 +158,7 @@
 		<image class="content-bg" src="/static/BG/BG.png" />
 		<!-- 左上角温度监控 -->
 		<c-temp :water="10" />
-		<view class="content-box" :style="{ transform: `translate(-50%, -50%) scale(${scale})` }">
+		<view class="content-box">
 			<!-- 左侧广告 -->
 			<view class="adBox">
 				<image class="adBox-bg" src="/static/BG/adbg.png" />
@@ -152,6 +167,12 @@
 					<image v-if="state.adList.length == 0 " class="adBox-empty" src="/static/temporaryAD.jpg" />
 				</view>
 				<view class="adBox-border" />
+			</view>
+			<view class="goodsAd">
+				<view class="goodsAdBox">
+					<c-goods-ad :list="state.goodsList" @change="adChange" />
+				</view>
+				<view class="goodsAd-border" />
 			</view>
 			
 			
@@ -187,6 +208,8 @@
 			top: 50%;
 			left: 50%;
 			transform-origin: center;
+			transform: translate(-50%, -50%);
+			
 			//  ---------- 左侧广告---------
 			.adBox {
 				width: 377rpx;
@@ -228,6 +251,29 @@
 						width: 100%;
 						height: 100%;
 					}
+				}
+			}
+			
+			.goodsAd{
+				position: absolute;
+				left: 404rpx;
+				top: 32rpx;
+				width: 327rpx;
+				height: 147rpx;
+				.goodsAdBox{
+					width: 327rpx;
+					height: 147rpx;
+					// background-color: #fff;
+					border-radius: 18rpx;
+					border:6rpx solid #fff;
+				}
+				.goodsAd-border{
+					position: absolute;
+					border-radius: 18rpx;
+					border: 6rpx solid #fff;
+					width: 327rpx;
+					height: 147rpx;
+					pointer-events: none;
 				}
 			}
 
