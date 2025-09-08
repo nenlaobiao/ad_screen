@@ -18,6 +18,9 @@
 </template>
 
 <script setup>
+	/**
+	 * 洗宠机广告
+	 */
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { Props, Emits ,CAdChange,AdFit} from "./types.uts"
 	
@@ -25,10 +28,6 @@
 	  list: {
 	    type: Array as PropType<dFile[]>,
 	    default: () => []  // 数组/对象必须用函数返回
-	  },
-	  fit: {
-	    type: String as PropType<AdFit>,
-	    default: 'cover'
 	  }
 	})
 	const emits = defineEmits<{

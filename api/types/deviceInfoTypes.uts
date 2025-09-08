@@ -1,10 +1,21 @@
+
+// {
+// 	image: "https://liuliangbenben.oss-cn-hangzhou.aliyuncs.com/cute/jiaqiangxi.png",
+// 	sub_title: "39.9元/次，新用户首次19.9元",
+// 	backgorundColor: "#FFF1D9",
+// 	color: "#F5AB30",
+// 	price: 39.9,
+// 	batch_type: 3,
+// 	title: "精洗(含烘干)",
+// 	desc: "适合中大型宠物"
+// }
 export type DeviceInfo = {
 	image : string
 	sub_title : string
 	backgorundColor : string
 	color : string
 	price : number
-	batch_type : number
+	batch_type : 1 | 2 | 3 // 1是烘干、2是普洗、3是精洗
 	title : string
 	desc : string
 }

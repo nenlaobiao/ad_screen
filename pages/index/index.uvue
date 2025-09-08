@@ -189,7 +189,7 @@
 			</view>
 			<!-- 右下付款按钮 -->
 			<view class="pay">
-				<c-pay :list="state.petWashInfo" @onTap="payTap"/>
+				<c-pay-btn :list="state.petWashInfo" @onTap="payTap"/>
 			</view>
 			
 		</view>

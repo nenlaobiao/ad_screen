@@ -1,8 +1,8 @@
 <template>
 	<view class="payBox">
 		<view v-for="(item,index) in list" hover-class="hover-class" :hover-stay-time="200"
-			:class="['payBox-item',{'payBox-item-first':index==0}]"
-			:style="{backgroundColor:item.backgorundColor}" @click="onTapFn(item)">
+			:class="['payBox-item',{'payBox-item-first':index==0}]" :style="{backgroundColor:item.backgorundColor}"
+			@click="onTapFn(item)">
 			<image class="payBox-item-image" :src="item.image"></image>
 			<view class="textBox">
 				<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
@@ -14,34 +14,16 @@
 </template>
 
 <script setup>
+	/**
+	 * 支付按钮组件
+	 */
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import { QRcodeTool, mpQrUrl } from "@/config.uts"
 	const props = defineProps({
 		list: {
 			type: Array as PropType<DeviceInfo[]>,
-			default: () => [
-				{
-					image: "https://liuliangbenben.oss-cn-hangzhou.aliyuncs.com/cute/jichuxi.png",
-					sub_title: "29.9元/次，新用户首次9.9元",
-					backgorundColor: "#E8F0FF",
-					color: "#398CE7",
-					price: 29.9,
-					batch_type: 2,
-					title: "普洗(含烘干)",
-					desc: "适合小型宠物"
-				},
-				{
-					image: "https://liuliangbenben.oss-cn-hangzhou.aliyuncs.com/cute/jiaqiangxi.png",
-					sub_title: "39.9元/次，新用户首次19.9元",
-					backgorundColor: "#FFF1D9",
-					color: "#F5AB30",
-					price: 39.9,
-					batch_type: 3,
-					title: "精洗(含烘干)",
-					desc: "适合中大型宠物"
-				}
-			] as DeviceInfo[] // 数组/对象必须用函数返回
+			default: () => []
 		}
 	})
 	const emits = defineEmits<{
