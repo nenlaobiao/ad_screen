@@ -190,7 +190,7 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
 export default async function fileManage(list : AdItem[], url:string = 'ad') : Promise<dFile[]> {
 	const adFileUrl = `${basePath}${url}/`
 	const cached = loadCache(adFileUrl)
-	const localFiles = readLocalFileNames(adFileUrl)
+	const localFiles = cached.length > 0 ?  readLocalFileNames(adFileUrl) : []
 	const neededFileNames = list.map(item => getFileName(item.src))
 	const deletedCount = cleanObsoleteFiles(adFileUrl, neededFileNames, localFiles)
 	const validCache = filterValidCache(adFileUrl, cached, localFiles)

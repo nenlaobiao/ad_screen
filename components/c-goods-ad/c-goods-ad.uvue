@@ -1,14 +1,17 @@
 <template>
-	<swiper class="goods-swiper" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
-		<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
-			<image class="swiper-img" :src="ad.path" mode="aspectFill" />
-			<view class="goods-info">
-				<text class="goods-info-title">{{ad.data.title}}</text>
-				<text class="goods-info-tips">微信扫码购买</text>
-				<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
-			</view>
-		</swiper-item>
-	</swiper>
+	<view class="goodsAdBox">
+		<swiper class="goods-swiper" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
+			<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
+				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
+				<view class="goods-info">
+					<text class="goods-info-title">{{ad.data.title}}</text>
+					<text class="goods-info-tips">微信扫码购买</text>
+					<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
+				</view>
+			</swiper-item>
+		</swiper>
+	</view>
+	<view class="goodsAd-border" />
 </template>
 
 <script setup>
@@ -43,6 +46,22 @@
 </script>
 
 <style lang="scss">
+	.goodsAdBox{
+		width: 100%;
+		height: 100%;
+		background-color: #fff;
+		border-radius: 18rpx;
+		border:6rpx solid #fff;
+	}
+	.goodsAd-border{
+		position: absolute;
+		z-index: 10;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
 	.goods-swiper {
 		width: 100%;
 		height: 100%;
@@ -50,22 +69,23 @@
 			flex-direction: row;
 			.swiper-img {
 				width: 188rpx;
-				height: 135rpx;
+				height: 100%;
 			}
 			.goods-info{
 				flex:1;
 				padding: 0 6rpx;
 				justify-content: flex-end;
 				align-items: center;
+				background-color: #84CAEB;
 				.goods-info-title{
-					margin-bottom: 5rpx;
-					font-size: 12rpx;
+					margin-bottom: 4rpx;
+					font-size: 10rpx;
 					color:#fff;
 					text-overflow: ellipsis;
-					lines: 2;
+					lines: 3;
 				}
 				.goods-info-tips{
-					margin-bottom: 5rpx;
+					margin-bottom: 4rpx;
 					font-size:8rpx;
 					color:#fff;
 				}

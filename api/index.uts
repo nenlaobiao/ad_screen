@@ -5,19 +5,28 @@ import { baseUrl } from "@/config.uts";
 type API = {
 	getTemplate:()=> Promise<ResponseData>;
 	getGoodsInfo:(params:UTSJSONObject)=> Promise<ResponseData>;
+	getDeviceInfo:()=> Promise<ResponseData>;
 }
 const api:API = { 
+	// 获取装修模板信息
 	getTemplate:()=>
 		request({
 		  url: '/shop/api/init',
 		  method: 'GET',
 		  header: { platform: 'App' }
 		}),
+	// 获取商品信息
 	getGoodsInfo: (params: UTSJSONObject) =>
 	  request({
 	    url: '/shop/api/goods/goods/ids',
 	    method: 'GET',
 	    data: params
+	  }),
+	// 获取设备信息
+	getDeviceInfo: () =>
+	  request({
+	    url: '/shop/api/pet/order/deviceInfo',
+	    method: 'GET'
 	  }),
   // checkeStatus: (data: any) =>
   //   request({
@@ -52,12 +61,6 @@ const api:API = {
   //     url: '/shop/api/pet/order/saveScreenshot',
   //     method: 'POST',
   //     data: data != null ? data : {}
-  //   }),
-
-  // deviceInfo: () =>
-  //   request({
-  //     url: '/shop/api/pet/order/deviceInfo',
-  //     method: 'GET'
   //   }),
 
   // upload: (file: string) => {

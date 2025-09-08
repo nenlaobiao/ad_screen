@@ -1,0 +1,10 @@
+export type DeviceInfo = {
+	image : string
+	sub_title : string
+	backgorundColor : string
+	color : string
+	price : number
+	batch_type : number
+	title : string
+	desc : string
+}

@@ -1,0 +1,128 @@
+<template>
+	<view class="payBox">
+		<view v-for="(item,index) in list" hover-class="hover-class" :hover-stay-time="200"
+			:class="['payBox-item',{'payBox-item-first':index==0}]"
+			:style="{backgroundColor:item.backgorundColor}" @click="onTapFn(item)">
+			<image class="payBox-item-image" :src="item.image"></image>
+			<view class="textBox">
+				<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
+				<text :style="{color:item.color}" class="text-subTitle">{{item.sub_title}}</text>
+				<text :style="{color:item.color}" class="text-desc">{{item.desc}}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup>
+	import type { AdItem, dFile } from '@/pages/index/types.uts'
+	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
+	import { QRcodeTool, mpQrUrl } from "@/config.uts"
+	const props = defineProps({
+		list: {
+			type: Array as PropType<DeviceInfo[]>,
+			default: () => [
+				{
+					image: "https://liuliangbenben.oss-cn-hangzhou.aliyuncs.com/cute/jichuxi.png",
+					sub_title: "29.9元/次，新用户首次9.9元",
+					backgorundColor: "#E8F0FF",
+					color: "#398CE7",
+					price: 29.9,
+					batch_type: 2,
+					title: "普洗(含烘干)",
+					desc: "适合小型宠物"
+				},
+				{
+					image: "https://liuliangbenben.oss-cn-hangzhou.aliyuncs.com/cute/jiaqiangxi.png",
+					sub_title: "39.9元/次，新用户首次19.9元",
+					backgorundColor: "#FFF1D9",
+					color: "#F5AB30",
+					price: 39.9,
+					batch_type: 3,
+					title: "精洗(含烘干)",
+					desc: "适合中大型宠物"
+				}
+			] as DeviceInfo[] // 数组/对象必须用函数返回
+		}
+	})
+	const emits = defineEmits<{
+		(e : "onTap", event : DeviceInfo) : void
+	}>()
+
+	function goodsQRcode(id : number | string) {
+		return QRcodeTool + encodeURIComponent(`${mpQrUrl}/dpGoods/?id=${id}`)
+	}
+
+	function onTapFn(e : DeviceInfo) {
+		emits('onTap', e)
+	}
+</script>
+
+<style lang="scss">
+	.hover-class {
+		transform: translate(1rpx, 1rpx);
+	}
+
+	.payBox {
+		align-items: center;
+		flex-direction: row;
+		justify-content: space-between;
+		width: 100%;
+		height: 100%;
+
+		.payBox-item-first {
+			margin-left: 0 !important;
+		}
+
+		.payBox-item {
+			flex: 1;
+			// width: 352px;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: space-between;
+			border-radius: 12rpx;
+			padding: 9rpx 10rpx;
+			margin-left: 9rpx;
+
+			.textBox {
+				position: relative;
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				align-items: flex-start;
+
+				.text-title {
+					text-align: left;
+					font-size: 13rpx;
+					font-weight: bold;
+				}
+
+				.text-subTitle {
+					margin: 3rpx 0;
+					font-size: 9rpx;
+					text-align: left;
+				}
+
+				.text-desc {
+					height: 19rpx;
+					border-radius: 4rpx;
+					background-color: #fff;
+					padding: 0 4rpx;
+					text-align: left;
+					line-height: 20rpx;
+					font-size: 8rpx;
+				}
+			}
+
+			.payBox-item-image {
+				position: absolute;
+				z-index: -1;
+				right: 3rpx;
+				bottom: 4rpx;
+				width: 44rpx;
+				height: 44rpx;
+			}
+		}
+	}
+</style>

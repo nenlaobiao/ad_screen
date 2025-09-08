@@ -3,8 +3,9 @@
 	import type { AdItem, State, dFile } from './types.uts'
 	import type { TempObject,GoodsClassData} from '@/api/types/tempTypes.uts'
 	import type { Goods} from '@/api/types/goodsTypes.uts'
+	import type { DeviceInfo} from '@/api/types/deviceInfoTypes.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
-	import { toNewObject } from "@/utils/tools.uts"
+	import { toNewObject,toNewArray } from "@/utils/tools.uts"
 	import  API ,{getTemplate} from '@/api/index.uts'
 	import type { ResponseData} from '@/api/request.uts';
 	const adData : AdItem[] = [
@@ -84,6 +85,7 @@
 	const state = reactive<State>({
 		adList:[],
 		goodsList:[],
+		petWashInfo:[],
 	})
 
 	function cdn(url : string) : string {
@@ -92,7 +94,9 @@
 	function adChange(e : any) {
 		console.log('adChange', e as CAdChange)
 	}
-	
+	function payTap(e :DeviceInfo){
+		console.log('payTap', e)
+	}
 	async function getGoodsInfo(ids:string){
 		try {
 			console.log('加载商品推荐')
@@ -120,7 +124,19 @@
 			console.log('getGoodsInfo --- catch',error)
 		}
 	}
-	
+	async function getDeviceInfo(){
+		try {
+			console.log('加载设备信息')
+			let res = await API.getDeviceInfo()
+			if (res.error == 0) {
+				let data = toNewArray<DeviceInfo>(res.data)
+				state.petWashInfo = data
+				console.log('getDeviceInfo',data)
+			}
+		} catch (error) {
+			console.log('getDeviceInfo --- catch',error)
+		}
+	}
 	async function getTemplateFn(){
 		try {
 			let res = await API.getTemplate()
@@ -142,11 +158,12 @@
 			console.log('getTemplate --- 请求失败',error)
 		}
 	}
-
+	
 	
 	
 	onLoad(() => {
 		getTemplateFn()
+		getDeviceInfo()
 		fileManage(adData).then((res : dFile[]) => {
 			state.adList = res
 		})
@@ -164,17 +181,16 @@
 				<image class="adBox-bg" src="/static/BG/adbg.png" />
 				<view class="adBox-box">
 					<c-ad :list="state.adList" fit="cover" @change="adChange" />
-					<image v-if="state.adList.length == 0 " class="adBox-empty" src="/static/temporaryAD.jpg" />
 				</view>
-				<view class="adBox-border" />
 			</view>
+			<!-- 右上商品广告区域 -->
 			<view class="goodsAd">
-				<view class="goodsAdBox">
-					<c-goods-ad :list="state.goodsList" @change="adChange" />
-				</view>
-				<view class="goodsAd-border" />
+				<c-goods-ad :list="state.goodsList" @change="adChange" />
 			</view>
-			
+			<!-- 右下付款按钮 -->
+			<view class="pay">
+				<c-pay :list="state.petWashInfo" @onTap="payTap"/>
+			</view>
 			
 		</view>
 		<!-- 底部状态栏 -->
@@ -203,7 +219,7 @@
 		.content-box {
 			width: 750rpx;
 			height: 326rpx;
-			background: lightskyblue;
+			// background: lightskyblue;
 			position: absolute;
 			top: 50%;
 			left: 50%;
@@ -227,56 +243,31 @@
 					height: 100%;
 				}
 
-				.adBox-border {
-					position: absolute;
-					border-radius: 26rpx;
-					border: 9rpx solid #fff;
-					width: calc(377rpx - 8rpx);
-					height: calc(278rpx - 12rpx);
-					pointer-events: none;
-				}
-
 				.adBox-box {
 					position: relative;
-					background: #B8E3FA;
-					border-radius: 26rpx;
-					border: 9rpx solid #fff;
-					width: 100%;
-					height: 100%;
-
-					.adBox-empty {
-						position: absolute;
-						top: 0rpx;
-						left: 0rpx;
-						width: 100%;
-						height: 100%;
-					}
+					width: calc(377rpx - 8rpx);
+					height: calc(278rpx - 12rpx);
 				}
 			}
-			
+			// ---------- 商品广告---------
 			.goodsAd{
 				position: absolute;
 				left: 404rpx;
-				top: 32rpx;
+				top: 28rpx;
 				width: 327rpx;
-				height: 147rpx;
-				.goodsAdBox{
-					width: 327rpx;
-					height: 147rpx;
-					// background-color: #fff;
-					border-radius: 18rpx;
-					border:6rpx solid #fff;
-				}
-				.goodsAd-border{
-					position: absolute;
-					border-radius: 18rpx;
-					border: 6rpx solid #fff;
-					width: 327rpx;
-					height: 147rpx;
-					pointer-events: none;
-				}
+				height: 152rpx;
+				
+			}
+			//  ---------- 支付按钮---------
+			.pay{
+				position: absolute;
+				left: 404rpx;
+				top: 188rpx;
+				width: 327rpx;
+				height: 106rpx;
 			}
 
 		}
+		//  ========== 主内容区结束==========
 	}
 </style>

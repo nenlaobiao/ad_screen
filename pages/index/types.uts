@@ -1,24 +1,27 @@
+import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
+
 export type AdItem = {
 	id : number;
 	title : string;
 	src : string;
-	type : 'video'|'image';
+	type : 'video' | 'image';
 }
 export type State = {
-	adList:dFile[];
-	goodsList:dFile[];
+	adList : dFile[];
+	goodsList : dFile[];
+	petWashInfo : DeviceInfo[];
 }
-export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess  | null | false
+export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess | null | false
 
 export type dFile = {
-	data:AdItem;
-	path:string;
-	fileName:string;
-	mediaInfo:GetMediaInfo
+	data : AdItem;
+	path : string;
+	fileName : string;
+	mediaInfo : GetMediaInfo
 }
 // export interface dFile<T> {
 //   ad:T;
 //   tempFilePath:string;
 //   fileName:string
 // }
-export type DownloadFile = Promise< DownloadFileSuccessCallback | dFile | null | undefined | false>
+export type DownloadFile = Promise<DownloadFileSuccessCallback | dFile | null | undefined | false>

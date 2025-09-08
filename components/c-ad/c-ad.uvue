@@ -1,16 +1,20 @@
 <template>
-	<swiper class="ad-swiper" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
-		<swiper-item v-for="ad in list" :key="ad.data.id">
-			<!-- 视频广告 -->
-			<template v-if="ad.data.type == 'video'">
-				<video class="swiper-video" :src="ad.path" object-fit="contain" />
-			</template>
-			<!-- 图片广告 -->
-			<template v-if="ad.data.type == 'image'">
-				<image class="swiper-img" :src="ad.path" mode="aspectFit" />
-			</template>
-		</swiper-item>
-	</swiper>
+	<view class="ad">
+		<swiper class="ad-swiper" v-if="list.length > 0" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
+			<swiper-item v-for="ad in list" :key="ad.data.id">
+				<!-- 视频广告 -->
+				<template v-if="ad.data.type == 'video'">
+					<video class="swiper-video" :src="ad.path" object-fit="contain" />
+				</template>
+				<!-- 图片广告 -->
+				<template v-if="ad.data.type == 'image'">
+					<image class="swiper-img" :src="ad.path" mode="aspectFit" />
+				</template>
+			</swiper-item>
+		</swiper>
+		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
+	</view>
+	<view class="ad-border" />
 </template>
 
 <script setup>
@@ -44,18 +48,36 @@
 </script>
 
 <style lang="scss">
-	.ad-swiper {
-		height: 100%;
+	.ad{
+		background: #B8E3FA;
+		border-radius: 26rpx;
+		border: 9rpx solid #fff;
+		.ad-swiper {
+			height: 100%;
+			width: 100%;
+
+			.swiper-img {
+				height: 100%;
+				width: 100%;
+			}
+
+			.swiper-video {
+				height: 100%;
+				width: 100%;
+			}
+		}
+		.ad-empty{
+			width: 100%;
+			height: 100%;
+		}
+	}
+	.ad-border{
+		position: absolute;
+		z-index: 1;
+		border-radius: 26rpx;
+		border: 9rpx solid #fff;
 		width: 100%;
-
-		.swiper-img {
-			height: 100%;
-			width: 100%;
-		}
-
-		.swiper-video {
-			height: 100%;
-			width: 100%;
-		}
+		height: 100%;
+		pointer-events: none;
 	}
 </style>

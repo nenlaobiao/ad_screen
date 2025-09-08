@@ -45,10 +45,31 @@ export function getErrorMsg(code : number) : string {
  * 将任意对象安全转换为指定类型
  */
 export function toNewObject<T>(obj: any): T {
-  // 用 UTSJSONObject.assign 保证在 iOS/Android 上的类型兼容
-  return UTSJSONObject.assign<T>(obj as UTSJSONObject)!;
+	try{
+		return UTSJSONObject.assign<T>(obj as UTSJSONObject)!;
+	}catch(err){
+		console.log('toNewObject --- error',err)
+		let errData = JSON.parse<T>(JSON.stringify(obj))!
+		return errData
+	}
 }
-
+/**
+ * 将任意数组安全转换为指定类型
+ */
+export function toNewArray<T>(obj: any): T[]{
+	try {
+		const arr = obj as any[]
+		const result: any[] = []
+		for (let i = 0; i < arr.length; i++) {
+			const res = arr[i] as UTSJSONObject
+			result.push(UTSJSONObject.assign<T>(res)!)
+		}
+		return result as T[]
+	} catch (err) {
+		console.log('toNewArray --- error',err)
+		return []
+	}
+}
 export function showMsg(title : string, duration : number = 1500, mask : boolean = true) {
 	uni.showToast({
 		title,
