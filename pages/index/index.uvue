@@ -141,7 +141,7 @@
 			let res = await API.getTemplate()
 			if(res.error == 0 ){
 				let resData = toNewObject<TempObject>(res.data)
-				let templateData = resData.template?.home.data
+				let templateData = resData.template.home?.data
 				if(templateData != null){
 					let templateDataItem = templateData.find(obj => obj.type =='goodsClass')
 					if(templateDataItem != null){
