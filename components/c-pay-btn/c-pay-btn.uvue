@@ -17,7 +17,6 @@
 	/**
 	 * 支付按钮组件
 	 */
-	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import { QRcodeTool, mpQrUrl } from "@/config.uts"
 	const props = defineProps({

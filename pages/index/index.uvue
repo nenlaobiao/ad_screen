@@ -6,8 +6,8 @@
 	import type { DeviceInfo} from '@/api/types/deviceInfoTypes.uts'
 	import fileManage, { ossUrl } from "@/utils/file.uts"
 	import { toNewObject,toNewArray } from "@/utils/tools.uts"
-	import  API ,{getTemplate} from '@/api/index.uts'
-	import type { ResponseData} from '@/api/request.uts';
+	import  API  from '@/api/index.uts'
+	import type { ResponseData } from "@/api/types.uts"
 	const adData : AdItem[] = [
 		{
 			id: 0,
@@ -97,6 +97,7 @@
 	function payTap(e :DeviceInfo){
 		console.log('payTap', e)
 	}
+	// 获取商品信息
 	async function getGoodsInfo(ids:string){
 		try {
 			console.log('加载商品推荐')
@@ -124,9 +125,10 @@
 			console.log('getGoodsInfo --- catch',error)
 		}
 	}
+	// 获取套餐信息
 	async function getDeviceInfo(){
 		try {
-			console.log('加载设备信息')
+			console.log('加载套餐信息')
 			let res = await API.getDeviceInfo()
 			if (res.error == 0) {
 				let data = toNewArray<DeviceInfo>(res.data)
@@ -136,6 +138,7 @@
 			console.log('getDeviceInfo --- catch',error)
 		}
 	}
+	// 获取装修模板信息
 	async function getTemplateFn(){
 		try {
 			let res = await API.getTemplate()
@@ -143,8 +146,10 @@
 				let resData = toNewObject<TempObject>(res.data)
 				let templateData = resData.template.home?.data
 				if(templateData != null){
+					// 获取指定组件装修信息
 					let templateDataItem = templateData.find(obj => obj.type =='goodsClass')
 					if(templateDataItem != null){
+						// 获取组件内商品数据
 						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
 						let ids = goodsClassData.templateList[0].goodsIds
 						let adIds = ids.slice(0,4).map(n=>`${n}`).join(',')

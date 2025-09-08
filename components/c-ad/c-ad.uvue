@@ -21,8 +21,8 @@
 	/**
 	 * 洗宠机广告
 	 */
-	import type { AdItem, dFile } from '@/pages/index/types.uts'
-	import type { Props, Emits ,CAdChange,AdFit} from "./types.uts"
+	import type { dFile } from '@/pages/index/types.uts'
+	import type {CAdChange} from "./types.uts"
 	
 	const props = defineProps({
 	  list: {

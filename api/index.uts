@@ -1,6 +1,5 @@
 import { request } from './request.uts';
-import type { ResponseData,RequestConfig } from "@/api/types.uts"
-import { baseUrl } from "@/config.uts";
+import type { ResponseData } from "@/api/types.uts"
 
 type API = {
 	getTemplate:()=> Promise<ResponseData>;
