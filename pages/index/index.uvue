@@ -175,6 +175,7 @@
 		<!-- 左上角温度监控 -->
 		<c-temp :water="10" />
 		<view class="content-box">
+			
 			<!-- 左侧广告 -->
 			<view class="adBox">
 				<image class="adBox-bg" src="/static/BG/adbg.png" />
@@ -182,14 +183,20 @@
 					<c-ad :list="state.adList" fit="cover" @change="adChange" />
 				</view>
 			</view>
+			
 			<!-- 右上商品广告区域 -->
 			<view class="goodsAd">
 				<c-goods-ad :list="state.goodsList" @change="adChange" />
 			</view>
+			
 			<!-- 右下付款按钮 -->
 			<view class="pay">
 				<c-pay-btn :list="state.petWashInfo" @onTap="payTap"/>
 			</view>
+			
+			<!-- 设备状态 （待开发） -->
+			
+			<!-- 洗护进度 （待开发） -->
 			
 		</view>
 		<!-- 底部状态栏 -->
