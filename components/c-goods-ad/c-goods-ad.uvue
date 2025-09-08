@@ -60,6 +60,7 @@
 	.goodsAdBox{
 		width: 100%;
 		height: 100%;
+		z-index: 11;
 		background-color: #84CAEB;
 		border-radius: 18rpx;
 		border:6rpx solid #fff;
