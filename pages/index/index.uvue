@@ -131,7 +131,6 @@
 			if (res.error == 0) {
 				let data = toNewArray<DeviceInfo>(res.data)
 				state.petWashInfo = data
-				console.log('getDeviceInfo',data)
 			}
 		} catch (error) {
 			console.log('getDeviceInfo --- catch',error)
