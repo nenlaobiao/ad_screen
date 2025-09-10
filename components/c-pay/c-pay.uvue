@@ -2,7 +2,7 @@
 	<image class="payBoxComp-bg" src="/static/BG/pay.png" />
 	<view class="payBoxComp">
 		<view class="payBoxComp-back">
-			<image class="back-icon" src="/static/icon/back.png" />
+			<image class="back-icon" src="/static/icon/back.png" mode="aspectFit" />
 			<text class="back-text">返回</text>
 		</view>
 	</view>

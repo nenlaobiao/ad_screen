@@ -191,16 +191,16 @@
 			</view>
 
 			<!-- 右上商品广告区域 -->
-			<view class="goodsAd" v-show="false">
+			<view class="goodsAd" v-show="true">
 				<c-goods-ad :list="state.goodsList" @change="adChange" />
 			</view>
 
 			<!-- 右下付款按钮 -->
-			<view class="paybtn" v-show="false">
+			<view class="paybtn" v-show="true">
 				<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
 			</view>
 			<!-- 套餐支付页 （待开发） -->
-			<view class="payBox" v-show="true">
+			<view class="payBox" v-show="false">
 				<c-pay />
 			</view>
 

@@ -67,7 +67,7 @@
 	}
 	.goodsAd-border{
 		position: absolute;
-		z-index: 10;
+		z-index: 12;
 		border-radius: 18rpx;
 		border: 6rpx solid #fff;
 		width: 100%;
