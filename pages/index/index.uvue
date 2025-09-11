@@ -83,9 +83,12 @@
 		}
 	]
 	const state = reactive<State>({
+		machineCode:'15294',
 		adList: [],
 		goodsList: [],
 		petWashInfo: [],
+		petWash:null,
+		showPay:false,
 	})
 
 	function cdn(url : string) : string {
@@ -95,6 +98,8 @@
 		console.log('adChange', e as CAdChange)
 	}
 	function payTap(e : DeviceInfo) {
+		state.petWash = e
+		state.showPay = true
 		console.log('payTap', e)
 	}
 	// 获取商品信息
@@ -134,6 +139,7 @@
 				let data = toNewArray<DeviceInfo>(res.data)
 				console.log('data', data)
 				state.petWashInfo = data
+				state.petWash = data[0]
 			}
 		} catch (error) {
 			console.log('getDeviceInfo --- catch', error)
@@ -163,7 +169,9 @@
 			console.log('getTemplate --- 请求失败', error)
 		}
 	}
-
+	function payBack(){
+		state.showPay = false
+	}
 
 
 	onLoad(() => {
@@ -199,13 +207,17 @@
 			<view class="paybtn" v-show="true">
 				<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
 			</view>
+			
 			<!-- 套餐支付页 （待开发） -->
-			<view class="payBox" v-show="false">
-				<c-pay />
+			<view class="payBox" v-show="state.showPay && state.petWash!=null">
+				<c-pay-info :data="state.petWash" :machineCode="state.machineCode" @back="payBack"/>
 			</view>
 
 			<!-- 设备状态 （待开发） -->
-
+			<view class="statusCard" v-show="true">
+				<c-status-card />
+			</view>
+			
 			<!-- 洗护进度 （待开发） -->
 
 		</view>
@@ -287,6 +299,15 @@
 
 			// ----------支付框---------------
 			.payBox {
+				position: absolute;
+				left: 404rpx;
+				top: 27rpx;
+				width: 327rpx;
+				height: 267rpx;
+			}
+			
+			// ------------ 设备状态 ---------------
+			.statusCard{
 				position: absolute;
 				left: 404rpx;
 				top: 27rpx;

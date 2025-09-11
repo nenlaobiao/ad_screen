@@ -7,9 +7,12 @@ export type AdItem = {
 	type : 'video' | 'image';
 }
 export type State = {
+	machineCode:string;
 	adList : dFile[];
 	goodsList : dFile[];
 	petWashInfo : DeviceInfo[];
+	petWash:DeviceInfo | null;
+	showPay:boolean;
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess | null | false
 

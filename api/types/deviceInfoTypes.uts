@@ -11,11 +11,11 @@
 // }
 export type DeviceInfo = {
 	image : string
+	title : string
 	sub_title : string
+	desc : string
+	batch_type : 1 | 2 | 3 // 1是烘干、2是普洗、3是精洗
 	backgorundColor : string
 	color : string
 	price : number
-	batch_type : 1 | 2 | 3 // 1是烘干、2是普洗、3是精洗
-	title : string
-	desc : string
 }

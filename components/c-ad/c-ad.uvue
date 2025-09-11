@@ -46,7 +46,7 @@
 	}
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 	.ad{
 		background: #B8E3FA;
 		border-radius: 26rpx;
