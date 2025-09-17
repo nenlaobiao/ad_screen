@@ -22,6 +22,9 @@
 </template>
 
 <script setup>
+	/**
+	 * 套餐支付页
+	 */
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import {QRcodeTool,mpQrUrl } from "@/config.uts"
 	const props = defineProps({

@@ -1,3 +1,6 @@
 export type State = {
-	backgroundType:string
+	backgroundType:string;
+	showIllus:boolean;
+	illusType:string;
+	tips:string;
 }

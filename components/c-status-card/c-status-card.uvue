@@ -1,38 +1,100 @@
 <template>
-	<image class="status-card-bg" :src="bgUrl"/>
+	<image class="status-card-bg" :src="bgUrl" />
 	<view class="status-card">
-		你好
+		<!-- 提示语 -->
+		<text :class="['status-card-tips',{'error-tips':state.illusType == 'error'}]" 
+			v-if="state.tips != ''">{{state.tips}}</text>
+		<!-- 状态插画 -->
+		<image class="status-card-illus" v-if="state.showIllus" :src="illusUrl" />
 	</view>
 </template>
 
 <script setup>
-import {State} from "./types.uts"
-const state =reactive<State>({
-	backgroundType:'default'
-})
-const bgUrl=computed<string.ImageURIString>(()=>{
-	switch (state.backgroundType) {
-		case 'default':
-			return '/static/BG/wash.png'
-		default:
-			return '/static/BG/wash.png'
-	}
-})
+	/**
+	 * 洗宠机状态显示
+	 */
+	import { State } from "./types.uts"
+	const props = defineProps({
+		status: {
+			type: String,
+			default: ''
+		}
+	})
+	const state = reactive<State>({
+		backgroundType: '',
+		showIllus:true,
+		illusType:'',
+		tips:'',
+	})
+	const bgUrl = computed<string.ImageURIString>(() => {
+		switch (state.backgroundType) {
+			case 'standby':
+				return '/static/BG/wash.png'
+			case 'error':
+				return '/static/BG/error.png'
+			default:
+				return '/static/BG/wash.png'
+		}
+	})
+	const illusUrl = computed<string.ImageURIString>(() => {
+		switch (state.illusType) {
+			case 'bathe':
+				return '/static/pet/bathe.png'
+			case 'takeout':
+				return '/static/pet/takeout.png'
+			case 'dry':
+				return '/static/pet/dry.png'
+			case 'clean':
+				return '/static/pet/clean.png'
+			case 'update':
+				return '/static/pet/update.png'
+			case 'abnormal':
+				return '/static/pet/abnormal.png'
+			case 'error':
+				return '/static/pet/error.png'
+			default:
+				return '/static/pet/update.png'
+		}
+	})
 </script>
 
 <style lang="scss">
-.status-card-bg{
-	position: absolute;
-	left: 0;
-	top: 0;
-	border-radius: 18rpx;
-	width: 100%;
-	height: 100%;
-}
-.status-card{
-	height: 100%;
-	width: 100%;
-	border-radius: 18rpx;
-	border:6rpx solid #fff;
-}
+	.status-card-bg {
+		position: absolute;
+		left: 0;
+		top: 0;
+		border-radius: 18rpx;
+		width: 100%;
+		height: 100%;
+	}
+
+	.status-card {
+		height: 100%;
+		width: 100%;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		
+		.status-card-tips{
+			margin-top: 44rpx;
+			font-size: 17rpx;
+			font-weight: bold;
+			color: #2E87B5;
+			text-align: center;
+		}
+		.error-tips{
+			color: #fff !important;
+			font-size: 24rpx;
+		}
+		
+		.status-card-illus{
+			height: 146rpx;
+			width: 146rpx;
+		}
+	}
+	
 </style>

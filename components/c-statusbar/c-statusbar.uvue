@@ -1,8 +1,8 @@
 <template>
 	<view class="statusbar">
-		<view class="statusbar-item" v-for="item in list" :key="item.name">
-			<text class="statusbar-text">{{`${item.name}：${item.value()}${item.unit ?? ''}`}}</text>
-		</view>
+		<text class="statusbar-text" v-for="item in list" :key="item.name">
+			{{`${item.name}：${item.value()}${item.unit ?? ''}`}}
+		</text>
 	</view>
 </template>
 
@@ -61,11 +61,8 @@
 		align-items: center;
 		flex-direction: row;
 
-		.statusbar-item {
-			margin-left: 18rpx;
-		}
-
 		.statusbar-text {
+			margin-left: 18rpx;
 			color: #fff;
 			font-size: 7rpx;
 			font-weight: bold;

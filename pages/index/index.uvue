@@ -194,31 +194,30 @@
 			<view class="adBox">
 				<image class="adBox-bg" src="/static/BG/adbg.png" />
 				<view class="adBox-box">
-					<c-ad :list="state.adList" fit="cover" @change="adChange" />
+					<c-ad :list="state.adList" @change="adChange" />
 				</view>
 			</view>
 
-			<!-- 右上商品广告区域 -->
-			<view class="goodsAd" v-show="true">
-				<c-goods-ad :list="state.goodsList" @change="adChange" />
-			</view>
+			<view class="rightBox">
+				<!-- 右上商品广告区域 -->
+				<view class="goodsAd" v-show="true">
+					<c-goods-ad :list="state.goodsList" @change="adChange" />
+				</view>
 
-			<!-- 右下付款按钮 -->
-			<view class="paybtn" v-show="true">
-				<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
+				<!-- 右下付款按钮 -->
+				<view class="paybtn" v-show="true">
+					<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
+				</view>
+				
+				<!-- 套餐支付页 -->
+				<c-pay-info v-if="state.showPay" :data="state.petWash" :machineCode="state.machineCode" @back="payBack"/>
+				
+				<!-- 设备状态 （待开发） -->
+				<c-status-card v-if="false" />
+				
+				<!-- 洗护进度 （待开发） -->
+				
 			</view>
-			
-			<!-- 套餐支付页 （待开发） -->
-			<view class="payBox" v-show="state.showPay && state.petWash!=null">
-				<c-pay-info :data="state.petWash" :machineCode="state.machineCode" @back="payBack"/>
-			</view>
-
-			<!-- 设备状态 （待开发） -->
-			<view class="statusCard" v-show="true">
-				<c-status-card />
-			</view>
-			
-			<!-- 洗护进度 （待开发） -->
 
 		</view>
 		<!-- 底部状态栏 -->
@@ -277,43 +276,32 @@
 					height: calc(278rpx - 12rpx);
 				}
 			}
-
-			// ---------- 商品广告---------
-			.goodsAd {
-				position: absolute;
-				left: 404rpx;
-				top: 28rpx;
-				width: 327rpx;
-				height: 152rpx;
-
-			}
-
-			//  ---------- 支付按钮---------
-			.paybtn {
-				position: absolute;
-				left: 404rpx;
-				top: 188rpx;
-				width: 327rpx;
-				height: 106rpx;
-			}
-
-			// ----------支付框---------------
-			.payBox {
+			.rightBox{
 				position: absolute;
 				left: 404rpx;
 				top: 27rpx;
 				width: 327rpx;
 				height: 267rpx;
+				// ---------- 商品广告---------
+				.goodsAd {
+					position: absolute;
+					left: 0;
+					top: 0;
+					width: 327rpx;
+					height: 152rpx;
+
+				}
+
+				//  ---------- 支付按钮---------
+				.paybtn {
+					position: absolute;
+					left: 0;
+					bottom: 0;
+					width: 327rpx;
+					height: 106rpx;
+				}
 			}
-			
-			// ------------ 设备状态 ---------------
-			.statusCard{
-				position: absolute;
-				left: 404rpx;
-				top: 27rpx;
-				width: 327rpx;
-				height: 267rpx;
-			}
+
 		}
 
 		//  ========== 主内容区结束==========
