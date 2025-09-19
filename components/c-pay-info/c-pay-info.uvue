@@ -46,7 +46,6 @@
 		emits('open',props.data)
 	}
 	function onBack(){
-		console.log('back')
 		emits('back',false)
 	}
 	const MPQRcode = computed(() => {

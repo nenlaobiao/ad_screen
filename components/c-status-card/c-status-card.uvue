@@ -1,11 +1,11 @@
 <template>
-	<image class="status-card-bg" :src="bgUrl" />
+	<image class="status-card-bg" :src="statusDataUrl.background" />
 	<view class="status-card">
 		<!-- 提示语 -->
-		<text :class="['status-card-tips',{'error-tips':state.illusType == 'error'}]" 
-			v-if="state.tips != ''">{{state.tips}}</text>
+		<text :class="['status-card-tips',{'error-tips':props.status == 'error'}]"
+			v-if="statusDataUrl.tips != ''">{{statusDataUrl.tips}}</text>
 		<!-- 状态插画 -->
-		<image class="status-card-illus" v-if="state.showIllus" :src="illusUrl" />
+		<image class="status-card-illus" v-if="statusDataUrl.illus != ''" :src="statusDataUrl.illus" />
 	</view>
 </template>
 
@@ -13,47 +13,51 @@
 	/**
 	 * 洗宠机状态显示
 	 */
-	import { State } from "./types.uts"
+	import { State, StatusDataUrl } from "./types.uts"
 	const props = defineProps({
 		status: {
 			type: String,
+			default: 'error'
+		},
+		errTips: {
+			type: String,
 			default: ''
-		}
+		},
 	})
 	const state = reactive<State>({
-		backgroundType: '',
-		showIllus:true,
-		illusType:'',
-		tips:'',
 	})
-	const bgUrl = computed<string.ImageURIString>(() => {
-		switch (state.backgroundType) {
-			case 'standby':
-				return '/static/BG/wash.png'
-			case 'error':
-				return '/static/BG/error.png'
-			default:
-				return '/static/BG/wash.png'
-		}
-	})
-	const illusUrl = computed<string.ImageURIString>(() => {
-		switch (state.illusType) {
-			case 'bathe':
-				return '/static/pet/bathe.png'
-			case 'takeout':
-				return '/static/pet/takeout.png'
-			case 'dry':
-				return '/static/pet/dry.png'
-			case 'clean':
-				return '/static/pet/clean.png'
-			case 'update':
-				return '/static/pet/update.png'
+	const statusDataUrl = computed<StatusDataUrl>(() => {
+		let background = '/static/BG/wash.png'
+		let illus = '/static/pet/update.png'
+		let tips = ''
+		switch (props.status) {
+			case 'bathe': // 放入宠物
+				illus = '/static/pet/bathe.png'
+				tips = '舱门已打开请放入宠物'
+			case 'takeout': // 取出宠物
+				illus = '/static/pet/takeout.png'
+				tips = '舱门已打开请带出宠物'
+			case 'dry': // 烘干
+				illus = '/static/pet/dry.png'
+				tips = '正在烘干中...'
+			case 'clean': // 消毒
+				illus = '/static/pet/clean.png'
+				tips = '机器消毒中...'
+			case 'update': // 更新
+				illus = '/static/pet/update.png'
+				tips = '机器更新中...'
 			case 'abnormal':
-				return '/static/pet/abnormal.png'
+				illus = '/static/pet/abnormal.png'
+				tips = '请关门消毒后再使用,请不要放入宠物关门'
 			case 'error':
-				return '/static/pet/error.png'
-			default:
-				return '/static/pet/update.png'
+				illus = '/static/pet/error.png'
+				background = '/static/BG/error.png'
+				tips = props.errTips != '' ? props.errTips : '暂停使用'
+		}
+		return {
+			background,
+			illus,
+			tips,
 		}
 	})
 </script>
@@ -78,23 +82,23 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		
-		.status-card-tips{
+
+		.status-card-tips {
 			margin-top: 44rpx;
 			font-size: 17rpx;
 			font-weight: bold;
 			color: #2E87B5;
 			text-align: center;
 		}
-		.error-tips{
+
+		.error-tips {
 			color: #fff !important;
 			font-size: 24rpx;
 		}
-		
-		.status-card-illus{
+
+		.status-card-illus {
 			height: 146rpx;
 			width: 146rpx;
 		}
 	}
-	
 </style>

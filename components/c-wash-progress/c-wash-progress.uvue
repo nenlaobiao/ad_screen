@@ -1,0 +1,79 @@
+<template>
+	<image class="wash-progress-bg" src="/static/BG/wash.png" />
+	<view class="wash-progress">
+		<text>你好</text>
+		<text>{{remainingTime}}</text>
+		<text>为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
+		<image class="img" src="/static/status/101.png" />
+	</view>
+</template>
+
+<script setup>
+	/**
+	 * 洗宠机步骤显示
+	 */
+	import { State } from "./types.uts"
+	const props = defineProps({
+		progress: {
+			type: String,
+			default: ''
+		},
+		seconds: {
+			type: Number,
+			default: 0
+		},
+	})
+	// const washMode = {
+	// 	basis:[
+	// 		{
+	// 			ico:'/static/status'
+	// 		}
+	// 	],
+	// 	enhance:[
+			
+	// 	]
+	// }
+	const state = reactive<State>({
+	})
+	const remainingTime = computed<string>(()=>{
+		let seconds = Number.from(props.seconds as number)
+		if (seconds < 0) seconds = 0; // 防止负数
+		const minutes = Math.floor(seconds / 60);
+		const secs = seconds % 60;
+		// 补零显示
+		const mm = minutes < 10 ? `0${minutes}` : `${minutes}`
+		const ss = secs < 10 ? `0${secs}` : `${secs}`
+		return `${mm}:${ss}`;
+	})
+
+</script>
+
+<style lang="scss">
+	.wash-progress-bg {
+		position: absolute;
+		left: 0;
+		top: 0;
+		border-radius: 18rpx;
+		width: 100%;
+		height: 100%;
+	}
+
+	.wash-progress {
+		height: 100%;
+		width: 100%;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		
+		.img{
+			height: 50rpx;
+			width: 50rpx;
+			background-color: pink;
+			border-radius: 25rpx;
+		}
+	}
+</style>

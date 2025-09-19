@@ -100,7 +100,7 @@
 	function payTap(e : DeviceInfo) {
 		state.petWash = e
 		state.showPay = true
-		console.log('payTap', e)
+		console.log('payTap', e.title)
 	}
 	// 获取商品信息
 	async function getGoodsInfo(ids : string) {
@@ -137,7 +137,6 @@
 			let res = await API.getDeviceInfo()
 			if (res.error == 0) {
 				let data = toNewArray<DeviceInfo>(res.data)
-				console.log('data', data)
 				state.petWashInfo = data
 				state.petWash = data[0]
 			}
@@ -173,7 +172,7 @@
 		state.showPay = false
 	}
 
-
+	const seconds = 66
 	onLoad(() => {
 		getTemplateFn()
 		getDeviceInfo()
@@ -212,11 +211,11 @@
 				<!-- 套餐支付页 -->
 				<c-pay-info v-if="state.showPay" :data="state.petWash" :machineCode="state.machineCode" @back="payBack"/>
 				
-				<!-- 设备状态 （待开发） -->
+				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
 				
 				<!-- 洗护进度 （待开发） -->
-				
+				<c-wash-progress  v-if="true" />
 			</view>
 
 		</view>

@@ -185,10 +185,10 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
 /**
  * 文件统一下载管理
  * @param {Array}list 文件列表 
- * @param {String} url 储存文件夹
+ * @param {String} type 储存文件夹
  */
-export default async function fileManage(list : AdItem[], url:string = 'ad') : Promise<dFile[]> {
-	const adFileUrl = `${basePath}${url}/`
+export default async function fileManage(list : AdItem[], type:string = 'ad') : Promise<dFile[]> {
+	const adFileUrl = `${basePath}${type}/`
 	const cached = loadCache(adFileUrl)
 	const localFiles = cached.length > 0 ?  readLocalFileNames(adFileUrl) : []
 	const neededFileNames = list.map(item => getFileName(item.src))
@@ -199,7 +199,7 @@ export default async function fileManage(list : AdItem[], url:string = 'ad') : P
 	
 	const merged = mergeAndSort(list, [...validCache, ...downloaded])
 
-	console.log(`读取缓存:${validCache.length}，下载:${downloaded.length}，删除:${deletedCount}`)
+	console.log(`${type} --> 读取缓存:${validCache.length}，下载:${downloaded.length}，删除:${deletedCount}`)
 	uni.setStorageSync(adFileUrl, JSON.stringify(merged))
 	return merged
 }

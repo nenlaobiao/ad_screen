@@ -1,6 +1,7 @@
 export type State = {
-	backgroundType:string;
-	showIllus:boolean;
-	illusType:string;
-	tips:string;
+}
+export type StatusDataUrl = {
+	background:string.ImageURIString,
+	illus:string.ImageURIString,
+	tips:string,
 }

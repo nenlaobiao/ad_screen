@@ -51,14 +51,14 @@
 		.tempBox-item-icon {
 			width: 7rpx;
 			height: 7rpx;
-			margin-right: 2rpx;
+			margin-right: 3rpx;
 		}
 
 		.tempBox-item-text {
 			flex:1;
 			font-weight: bold;
 			color: #2E87B5;
-			font-size: 6rpx;
+			font-size: 7rpx;
 		}
 	}
 </style>
