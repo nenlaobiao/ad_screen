@@ -4,7 +4,9 @@
 		<text>你好</text>
 		<text>{{remainingTime}}</text>
 		<text>为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
-		<image class="img" src="/static/status/101.png" />
+		<view class="" >
+			<image :class="['img',{afoot:true}]" src="/static/status/shower.png" />
+		</view>
 	</view>
 </template>
 
@@ -70,10 +72,13 @@
 		justify-content: center;
 		
 		.img{
-			height: 50rpx;
-			width: 50rpx;
-			background-color: pink;
+			height: 28rpx;
+			width: 28rpx;
+			background-color: #409ECF;
 			border-radius: 25rpx;
+		}
+		.afoot{
+			background-color: #F2FBFF;
 		}
 	}
 </style>
