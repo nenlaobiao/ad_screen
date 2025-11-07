@@ -70,8 +70,8 @@
 				"x86",
 				"x86_64"
 			],
-			"minSdkVersion": "24",
-			"targetSdkVersion": "24"
+			"minSdkVersion": "21",
+			"targetSdkVersion": "32"
 		}
 	},
 	"app-ios": {

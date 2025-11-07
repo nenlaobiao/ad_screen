@@ -76,15 +76,9 @@ function cleanObsoleteFiles(url:string, needed : string[], localFiles : string[]
 }
 
 /** 过滤无效缓存项（本地文件不存在） */
-function filterValidCache(url:string, cacheList : dFile[], localFileNames : string[]) : dFile[] {
+function filterValidCache( cacheList : dFile[], localFileNames : string[]) : dFile[] {
 	return cacheList.filter(item => {
-		const fullPath = `${url}/${item.fileName}`
-		try {
-			FS.accessSync(fullPath)
-			return localFileNames.includes(item.fileName)
-		} catch {
-			return false
-		}
+		return localFileNames.includes(item.fileName)
 	})
 }
 
@@ -105,7 +99,7 @@ function mergeAndSort(list : AdItem[], allFiles : dFile[]) : dFile[] {
 }
 
 /** 下载缺失资源（并发控制 + 重试） */
-async function downloadAD(url:string, list : AdItem[], maxConcurrent = 3, attempt = 3) : Promise<dFile[]> {
+async function downloadAD(url:string, list : AdItem[],cacheRef: dFile[], maxConcurrent = 3, attempt = 3) : Promise<dFile[]> {
 	const successList : dFile[] = []
 	const tasks : AdItem[] = [...list]
 
@@ -116,8 +110,12 @@ async function downloadAD(url:string, list : AdItem[], maxConcurrent = 3, attemp
 			for (let d = 1; d <= attempt; d++) {
 				try {
 					console.log(`${d == 1 ? '开始' : '重试'}下载 ${item.src}`)
-					const result = await downloadFile(url,item)
-					successList.push(result)
+					const file = await downloadFile(url,item)
+					// 及时更新缓存
+					cacheRef.push(file)
+					uni.setStorageSync(url, JSON.stringify(cacheRef))
+					
+					successList.push(file)
 					break
 				} catch (e) {
 					if (d === attempt) console.error(`下载失败跳过: ${item.src}`)
@@ -190,16 +188,17 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
 export default async function fileManage(list : AdItem[], type:string = 'ad') : Promise<dFile[]> {
 	const adFileUrl = `${basePath}${type}/`
 	const cached = loadCache(adFileUrl)
-	const localFiles = cached.length > 0 ?  readLocalFileNames(adFileUrl) : []
+	const localFiles = readLocalFileNames(adFileUrl)
 	const neededFileNames = list.map(item => getFileName(item.src))
 	const deletedCount = cleanObsoleteFiles(adFileUrl, neededFileNames, localFiles)
-	const validCache = filterValidCache(adFileUrl, cached, localFiles)
+	let validCache = filterValidCache(cached, localFiles)
+	const cacheNum = validCache.length
 	const toDownload = getDownloadList(list, localFiles)
-	const downloaded = await downloadAD(adFileUrl, toDownload)
+	const downloaded = await downloadAD(adFileUrl, toDownload,validCache)
 	
-	const merged = mergeAndSort(list, [...validCache, ...downloaded])
+	const merged = mergeAndSort(list, validCache)
 
-	console.log(`${type} --> 读取缓存:${validCache.length}，下载:${downloaded.length}，删除:${deletedCount}`)
+	console.log(`${type} --> 读取缓存:${cacheNum}，下载:${downloaded.length}，删除:${deletedCount}`)
 	uni.setStorageSync(adFileUrl, JSON.stringify(merged))
 	return merged
 }
