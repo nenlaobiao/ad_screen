@@ -1,13 +1,6 @@
 import type { AdItem, dFile, GetMediaInfo } from '@/pages/index/types.uts'
 
-// #ifdef MP
-const basePath = uni.env.USER_DATA_PATH + '/'
-const cachePath = uni.env.CACHE_PATH + '/'
-// #endif
-// #ifndef MP
 const basePath = uni.env.USER_DATA_PATH
-const cachePath = uni.env.CACHE_PATH
-// #endif
 
 export const ossUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"
 
