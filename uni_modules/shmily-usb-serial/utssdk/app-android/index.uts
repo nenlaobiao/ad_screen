@@ -1,0 +1,475 @@
+import Context from 'android.content.Context';
+import UsbDevice from 'android.hardware.usb.UsbDevice';
+import HashMap from 'java.util.HashMap';
+import Arrays from 'java.util.Arrays';
+import StringBuilder from 'java.lang.StringBuilder';
+import UsbManager from 'android.hardware.usb.UsbManager';
+import UsbSerialPort from 'com.hoho.android.usbserial.driver.UsbSerialPort';
+import UsbSerialProber from 'com.hoho.android.usbserial.driver.UsbSerialProber';
+import SerialInputOutputManager from 'com.hoho.android.usbserial.util.SerialInputOutputManager';
+import HexDump from 'com.hoho.android.usbserial.util.HexDump';
+import IOException from 'java.io.IOException';
+import Charsets from 'kotlin.text.Charsets';
+import Build from 'android.os.Build';
+import PendingIntent from 'android.app.PendingIntent';
+import Intent from 'android.content.Intent';
+import BroadcastReceiver from 'android.content.BroadcastReceiver';
+import IntentFilter from 'android.content.IntentFilter';
+import Toast from 'android.widget.Toast';
+import { IDeviceItem, IConnectOptions, IOperData, IDataType, IReadOptions } from '../interface.uts';
+import UsbDeviceConnection from "android.hardware.usb.UsbDeviceConnection";
+import Int from "kotlin.Int";
+
+
+
+class MyListener implements SerialInputOutputManager.Listener {
+  private outerSerial : UsbSerial;
+  constructor(outerSerial : UsbSerial) {
+    this.outerSerial = outerSerial;
+  }
+  override onNewData(data : ByteArray) : void {
+    const { globalMsgCallback, dataType } = this.outerSerial;
+    const hex = HexDump.toHexString(data);
+    if (globalMsgCallback != null) {
+      if (dataType == 'HEX') {
+        UTSAndroid.getDispatcher("main").async(function(_){
+          globalMsgCallback(hex);
+        }, null);
+      } else {
+        const ascii = UsbSerial.hexToAscii(hex);
+        UTSAndroid.getDispatcher("main").async(function(_){
+          globalMsgCallback(ascii);
+        }, null);
+      }
+    }
+  }
+  override onRunError(e : Exception) : void {
+    console.log(e);
+    const { globalCloseCallback } = this.outerSerial;
+    if (e.message == 'Connection closed') {
+      globalCloseCallback?.({
+        success: true,
+        message: '设备关闭成功'
+      } as IOperData);
+    } else {
+      this.outerSerial.disconnect(globalCloseCallback);
+    }
+  }
+}
+
+const ACTION_USB_PERMISSION = "uts.sdk.modules.shmilyUsbSerial.USB_PERMISSION";
+class UsbPermissionBroadcastReceiver extends BroadcastReceiver {
+  private outerSerial : UsbSerial;
+  constructor(outerSerial : UsbSerial) {
+    super();
+    this.outerSerial = outerSerial;
+  }
+  
+  @Suppress("DEPRECATION")
+  override onReceive(_context : Context, intent : Intent) : void {
+    if (ACTION_USB_PERMISSION == intent.action) {
+      const device : UsbDevice | null = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+      if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+        if (device != null) {
+          if (this.outerSerial.deviceConnectOptions != null) {
+            this.outerSerial.openUsbDevice(this.outerSerial.devicePort, this.outerSerial.deviceConnectOptions as IConnectOptions);
+            UTSAndroid.getUniActivity()!.unregisterReceiver(this.outerSerial.usbPermissionReceiver);
+          }
+        } else {
+          this.outerSerial.globalConnectCallback?.({
+            success: false,
+            message: '获取USB权限失败'
+          } as IOperData);
+          Toast.makeText(UTSAndroid.getAppContext(), "获取USB权限失败", Toast.LENGTH_LONG).show();
+        }
+      } else {
+          this.outerSerial.globalConnectCallback?.({
+            success: false,
+            message: '获取USB权限失败'
+          } as IOperData);
+        Toast.makeText(UTSAndroid.getAppContext(), "USB权限被拒绝", Toast.LENGTH_LONG).show();
+      }
+    }
+  }
+}
+class DeviceAttachBroadcastReceiver extends BroadcastReceiver {
+  private outerSerial : UsbSerial;
+  constructor(outerSerial : UsbSerial) {
+    super();
+    this.outerSerial = outerSerial;
+  }
+  override onReceive(_context : Context, intent : Intent) : void {
+    if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action) {
+      if (this.outerSerial.globalUsbAttachCallback != null) {
+        this.outerSerial.globalUsbAttachCallback?.invoke(true);
+      }
+    } else if (UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
+      if (this.outerSerial.globalUsbAttachCallback != null) {
+        this.outerSerial.globalUsbAttachCallback?.invoke(false);
+      }
+    }
+  }
+}
+
+export class UsbSerial {
+  private mUsbManager : UsbManager | null = null;
+  private mSerialPort : UsbSerialPort | null = null;
+  private mUsbIoManager : SerialInputOutputManager | null = null;
+  mUsbConnection : UsbDeviceConnection | null = null;
+  mReadBufferSize = 0;
+  devicePort : UsbSerialPort | null = null;
+  deviceConnectOptions : IConnectOptions | null = null;
+  globalMsgCallback : ((data : string) => void) | null = null;
+  globalUsbAttachCallback : ((action : boolean) => void) | null = null;
+  globalConnectCallback: ((data : IOperData) => void) | null = null;
+  globalCloseCallback: ((data: IOperData) => void) | null = null;
+  dataType : IDataType = 'ASCII';
+  constructor() {
+    const context = UTSAndroid.getAppContext();
+    if (context != null) {
+      this.mUsbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager;
+    }
+  }
+  usbPermissionReceiver = new UsbPermissionBroadcastReceiver(this);
+  deviceAttachReceive = new DeviceAttachBroadcastReceiver(this);
+
+  getDeviceList() : IDeviceItem[] {
+    if (this.mUsbManager != null) {
+      const deviceMap = this.mUsbManager?.getDeviceList() as HashMap<string, UsbDevice>;
+      const list : Array<IDeviceItem> = [];
+      for (let i in deviceMap) {
+        const dev = i.value;
+        list.push({
+          deviceName: dev.getDeviceName(),
+          deviceId: dev.getDeviceId(),
+          vendorId: dev.getVendorId(),
+          productId: dev.getProductId(),
+          productName: dev.getProductName()
+        } as IDeviceItem)
+      }
+      return list;
+    }
+    return [];
+  }
+  isConnect() : boolean {
+    if (this.mSerialPort != null) {
+      return (this.mSerialPort as UsbSerialPort).isOpen();
+    }
+    return false;
+  }
+  private checkAndRequestUsbPermission(port : UsbSerialPort) {
+    const context = UTSAndroid.getAppContext();
+    const permissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
+    this.mUsbManager!.requestPermission(port.driver.device, permissionIntent);
+  }
+  openUsbDevice(port : UsbSerialPort | null, options : IConnectOptions) {
+    if (port == null) {
+      this.globalConnectCallback?.({
+        success: false,
+        message: '未找到串口设备或没有驱动'
+      } as IOperData);
+      return;
+    }
+    this.mUsbConnection = this.mUsbManager!.openDevice(port.driver.device);
+    port.open(this.mUsbConnection);
+    port.setParameters(options.baudRate.toInt(), options.dataBits.toInt(), options.stopBits.toInt(), options.parity.toInt());
+    this.mSerialPort = port;
+    // CH34x暂不支持清空purgeHwBuffers方法
+    // port.purgeHwBuffers(true, true);
+    this.globalConnectCallback?.({
+      success: true,
+      message: '设备打开成功'
+    } as IOperData);
+  }
+  @UTSJS.keepAlive
+  connect(options : IConnectOptions, callback: ((data : IOperData) => void) | null = null) : void {
+    this.globalConnectCallback = callback;
+    if (this.isConnect()) {
+      this.globalConnectCallback?.({
+        success: true,
+        message: '设备已打开'
+      } as IOperData);
+    }
+    const port : (UsbSerialPort | null) = this.findSerialPort(options.vendorId, options.productId);
+    if (port == null || this.mUsbManager == null) {
+      this.globalConnectCallback?.({
+        success: false,
+        message: '未找到串口设备或没有驱动'
+      } as IOperData);
+      return;
+    }
+     // 打开串口连接
+     try {
+       const hasPermission = this.mUsbManager!.hasPermission(port.driver.device)
+       this.deviceConnectOptions = options;
+       this.devicePort = port;
+       if (!hasPermission) {
+         const filter = new IntentFilter(ACTION_USB_PERMISSION);
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+           UTSAndroid.getUniActivity()!.registerReceiver(this.usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+         } else {
+           UTSAndroid.getUniActivity()!.registerReceiver(this.usbPermissionReceiver, filter);
+         }
+         this.checkAndRequestUsbPermission(port);
+       } else {
+         this.openUsbDevice(port, options);
+       }
+     } catch (e : IOException) {
+        this.globalConnectCallback?.({
+         success: false,
+         message: '未知异常:' + e.message
+       } as IOperData);
+     }
+  }
+  private findSerialPort(vendorId : number, productId : number) : UsbSerialPort | null {
+    const availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(this.mUsbManager);
+    if (availableDrivers.isEmpty()) {
+      return null;
+    }
+    for (let i : Int = 0; i < availableDrivers.size; i++) {
+      const portList = availableDrivers.get(i).getPorts();
+      for (let port in portList) {
+        const dev = port.getDriver().getDevice();
+        if (dev.getVendorId() == vendorId && dev.getProductId() == productId) {
+          return port;
+        }
+      }
+    }
+    return null;
+  }
+  private startTask() : void {
+    if (this.mUsbIoManager != null) {
+      return;
+    }
+    this.mUsbIoManager = new SerialInputOutputManager(this.mSerialPort, new MyListener(this));
+    this.mUsbIoManager!.setReadBufferSize(this.mReadBufferSize.toInt());
+    this.mUsbIoManager!.start();
+  }
+  private stopTask() {
+    this.mUsbIoManager?.setListener(null);
+    this.globalMsgCallback = null;
+    this.mUsbIoManager?.stop();
+    this.mUsbIoManager = null;
+  }
+  static hexToAscii(hex : string) : string {
+    const cleanedHexStr = hex.replace("\\s".toRegex(), "");
+    const output = new StringBuilder("");
+    let i = 0;
+    while (i < cleanedHexStr.length) {
+      const str = cleanedHexStr.substring(i, i + 2);
+      const decimal = str.toInt(16);
+      output.append(decimal.toChar());
+      i += 2;
+    }
+    return output.toString();
+  }
+  static bytesToHex(bytes : ByteArray) : string {
+    const result = new StringBuilder(bytes.size * 3 - 1);
+    for (let i : Int = 0; i < bytes.size; i++) {
+      const byteValue = bytes[i] & 0xFF;
+      result.append(Integer.toHexString((byteValue >>> 4).toInt()));
+      result.append(Integer.toHexString((byteValue & 0x0F).toInt()));
+      if (i < bytes.size - 1) {
+        result.append(" ");
+      }
+    }
+    return result.toString().toUpperCase();
+  }
+  // 默认参数不传报错
+  read(dataType : IDataType) : IOperData {
+    if (this.mSerialPort == null) {
+      return {
+        message: "设备未打开，请先打开设备",
+        success: false
+      } as IOperData;
+    }
+    try {
+      this.dataType = dataType;
+      const size = this.getMaxPacketSize();
+      const buffer = new ByteArray(size.toInt());
+      const numBytesRead = this.mSerialPort!.read(buffer, 2000);
+      const tempData = Arrays.copyOf(buffer, numBytesRead);
+      const result = this.dataType == 'HEX' ? UsbSerial.bytesToHex(tempData) : tempData.toString(Charsets.ISO_8859_1);
+      return {
+        data: result,
+        success: true,
+        message: '读取成功'
+      } as IOperData;
+    } catch (e : Exception) {
+      return {
+        message: "读取数据失败：" + e.message,
+        success: false
+      } as IOperData;
+    }
+  }
+  // 以字节数组格式发送数据
+  sendBytes(str : string) {
+    if (!this.isConnect()) {
+      Toast.makeText(UTSAndroid.getUniActivity(), "设备未打开", Toast.LENGTH_SHORT).show();
+      return;
+    }
+    try {
+      if (!str.contains('\n') && !str.contains('\r')) {
+        str = str + '\r\n';
+      }
+      const data = str.toByteArray();
+      this.mSerialPort!.write(data, 2000);
+    } catch (e : Exception) {
+      console.log(e)
+    }
+  }
+  // 以16进制格式发送数据
+  sendHex(str : string) {
+    if (!this.isConnect()) {
+      Toast.makeText(UTSAndroid.getUniActivity(), "设备未打开", Toast.LENGTH_SHORT).show();
+      return;
+    }
+    try {
+      const data = HexDump.hexStringToByteArray(str);
+      this.mSerialPort!.write(data, 2000);
+    } catch (e : Exception) {
+      console.log(e)
+    }
+  }
+  // 获取USB每次传输最大数据量
+  getMaxPacketSize() : number {
+    if (!this.isConnect()) {
+      Toast.makeText(UTSAndroid.getAppContext(), "设备未打开", Toast.LENGTH_LONG).show();
+      return -1;
+    }
+    if (this.mSerialPort != null) {
+      return this.mSerialPort!.getReadEndpoint().getMaxPacketSize();
+    }
+    return -1;
+  }
+  // 订阅消息通知
+  @UTSJS.keepAlive
+  subscribe(options: IReadOptions, callback : (data : string) => void) : IOperData {
+    if (this.mSerialPort == null) {
+      return {
+        message: "设备未打开，请先打开设备",
+        success: false
+      } as IOperData;
+    }
+    const { dataType, bufferSize } = options;
+    this.dataType = dataType;
+    if (bufferSize == null || bufferSize <= 0) {
+      this.mReadBufferSize = this.getMaxPacketSize();
+    } else {
+      this.mReadBufferSize = bufferSize;
+    }
+    this.globalMsgCallback = callback;
+    try {
+      this.startTask();
+      return {
+        message: "订阅成功",
+        success: true
+      } as IOperData;
+    } catch (e) {
+      return {
+        message: "订阅失败：" + e.message,
+        success: false
+      } as IOperData;
+    }
+  }
+  // 取消订阅消息通知
+  unsubscribe() : void {
+    this.stopTask();
+  }
+  registerUsbAttach(callback : (action : boolean) => void) : void {
+    this.globalUsbAttachCallback = callback;
+    const filter = new IntentFilter();
+    filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+    filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      UTSAndroid.getUniActivity()!.registerReceiver(this.deviceAttachReceive, filter, Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      UTSAndroid.getUniActivity()!.registerReceiver(this.deviceAttachReceive, filter);
+    }
+  }
+  unregisterUsbAttach() {
+    if (this.globalUsbAttachCallback == null) {
+      return;
+    }
+    try {
+      UTSAndroid.getUniActivity()!.unregisterReceiver(this.deviceAttachReceive);
+    } catch (e : Exception) {
+      console.log(e);
+    }
+  }
+  disconnect(callback: ((data: IOperData) => void) | null) : void {
+    this.globalCloseCallback = callback;
+    // 断开串口连接
+    if (this.mSerialPort == null) {
+      this.globalCloseCallback?.({
+        success: true,
+        message: '设备关闭成功'
+      } as IOperData);
+      return;
+    }
+    try {
+      if (this.mUsbConnection != null) {
+        this.mUsbConnection!.close()
+      }
+      this.mSerialPort!.close();
+      this.mSerialPort = null;
+      this.stopTask();
+      this.globalCloseCallback?.({
+        success: true,
+        message: '设备关闭成功'
+      } as IOperData);
+    } catch (e : Exception) {
+      console.log(e);
+      this.globalCloseCallback?.({
+        success: false,
+        message: '设备关闭失败'
+      } as IOperData);
+    }
+  }
+  setDTR(value: boolean) {
+    if (this.isConnect()) {
+      try {
+        this.mSerialPort!.setDTR(value);
+        return true;
+      } catch (e : Exception) {
+        console.log(e);
+        return false;
+      }
+    }
+    return false;
+  }
+  getDSR(): boolean {
+    if (this.isConnect()) {
+      try {
+        return this.mSerialPort!.getDSR();
+      } catch (e : Exception) {
+        console.log(e);
+        return false;
+      }
+    }
+    return false;
+  }
+  setRTS(value: boolean) {
+    if (this.isConnect()) {
+      try {
+        this.mSerialPort!.setRTS(value);
+        return true;
+      } catch (e : Exception) {
+        console.log(e);
+        return false;
+      }
+    }
+    return false;
+  }
+  getCTS(): boolean {
+    if (this.isConnect()) {
+      try {
+        return this.mSerialPort!.getCTS();
+      } catch (e : Exception) {
+        console.log(e);
+        return false;
+      }
+    }
+    return false;
+  }
+}

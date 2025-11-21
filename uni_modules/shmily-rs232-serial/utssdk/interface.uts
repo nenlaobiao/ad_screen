@@ -1,0 +1,10 @@
+export type IConnectOptions = {
+  port : string, // 端口，比如 /dev/ttyS1
+  baudRate : number, // 波特率
+  dataBits : number, // 数据位
+  stopBits : number, // 停止位
+  parity : number,   // 校验位, 0 - none, 1 - odd, 2 - even, 3 - mark, 4 - space
+  flowCon: number // 流控， 0 - none, 1 - RTS/CTS, 2 - "XON/XOFF"
+}
+
+export type IDataType = 'HEX' | 'ASCII';

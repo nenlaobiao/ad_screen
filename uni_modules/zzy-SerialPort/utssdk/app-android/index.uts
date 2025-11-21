@@ -1,0 +1,121 @@
+import SerialPortHelper from "me.f1reking.serialportlib.SerialPortHelper"
+import Device from "me.f1reking.serialportlib.entity.Device"
+import Status from "me.f1reking.serialportlib.listener.Status"
+import IOpenSerialPortListener from "me.f1reking.serialportlib.listener.IOpenSerialPortListener"
+import ISerialPortDataListener from "me.f1reking.serialportlib.listener.ISerialPortDataListener"
+import File from 'java.io.File';
+
+
+
+
+export class serialPort {
+	private serialPortHelper : SerialPortHelper
+	constructor() {
+		this.serialPortHelper = new SerialPortHelper();
+	}
+	//设置地址
+	public setPath(port : string) : void {
+		this.serialPortHelper.setPort(port);
+	}
+
+	// 设置波特率 
+	public setBaudRate(baudRate : number) {
+		this.serialPortHelper.setBaudRate(baudRate.toInt());
+	}
+
+	// 设置停止位
+	public setStopBits(setStopBits : number) : void {
+		this.serialPortHelper.setStopBits(setStopBits.toInt());
+	}
+
+
+	// 设置校验位
+	public setParity(parity : number) : void {
+		this.serialPortHelper.setParity(parity.toInt());
+	}
+
+	// 设置流控
+	public setFlowCon(flowCon : number) : void {
+		this.serialPortHelper.setFlowCon(flowCon.toInt());
+	}
+
+	//设置标志
+	public setFlags(flags : number) : void {
+		this.serialPortHelper.setFlags(flags.toInt());
+	}
+	//打开串口
+	public open(callback : (arg : object) => any) : void {
+		class iOpenSerialPortListener implements IOpenSerialPortListener {
+			override onSuccess(device : File) : void {
+				callback({ "status": true })
+			}
+			override onFail(device : File, status : Status) : void {
+				callback({ "status": false, "msg": status })
+			}
+		}
+		serialPortHelper.setIOpenSerialPortListener(new iOpenSerialPortListener());
+
+		try {
+			serialPortHelper.open();
+		}
+		catch (e) {
+			callback({ "status": false, "msg": "NO_READ_WRITE_PERMISSION" })
+		}
+	}
+
+	//关闭串口
+	public close() : void {
+		this.serialPortHelper.close();
+	}
+
+	//串口状态
+	public isOpen() : Boolean {
+		return this.serialPortHelper.isOpen();
+	}
+
+
+	//获取所有串口 
+	public getAllDeviceList(callback ?: (arg1 : any) => any) {
+		const list : any = this.serialPortHelper.getAllDevices();
+		if (callback != null) {
+			callback(list)
+		}
+	}
+
+	//获取所有路径  
+	public getAllDevicePath(callback ?: (arg1 : any) => any) {
+		const list : any = this.serialPortHelper.getAllDeicesPath();
+		if (callback != null) {
+			callback(list)
+		}
+	}
+	//发送16进制
+	public sendHex(hex : string) : void {
+		this.serialPortHelper.sendHex(hex);
+	}
+	//设置监听16进制
+	public setListenerHex(sendCallback ?: (arg1 : string) => any, receivedCallback ?: (arg1 : string) => any) : void {
+		class iSerialPortDataListener implements ISerialPortDataListener {
+			override onDataSend(bytes : ByteArray) : void {
+				if (sendCallback != null) {
+					sendCallback(byteToHex(bytes))
+				}
+			}
+			override onDataReceived(bytes : ByteArray) : void {
+				if (receivedCallback != null) {
+					console.log(byteToHex(bytes));
+					receivedCallback(byteToHex(bytes))
+				}
+			}
+		}
+		serialPortHelper.setISerialPortDataListener(new iSerialPortDataListener());
+	}
+	private byteToHex(bytes : ByteArray) : string {
+		let Str : string = ""
+		for (let i in bytes) {
+			let byte = i & 0xFF
+			Str += " " + byte.toString(16).padStart(2, '0')
+		}
+		return Str
+	}
+}

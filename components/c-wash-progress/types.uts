@@ -1,2 +1,11 @@
 export type State = {
 }
+export type WashModeBasis = {
+	title:string,
+	status:number,
+	icon:string.ImageURIString,
+	afoot:boolean
+}
+export type WashMode = {
+	basis:WashModeBasis[]
+}

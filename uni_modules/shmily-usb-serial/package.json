@@ -1,0 +1,89 @@
+{
+  "id": "shmily-usb-serial",
+  "displayName": "usb-serial",
+  "version": "1.1.1",
+  "description": "USB串口数据读写插件，支持设置波特率、数据位、校验位、停止位，有问题进交流群",
+  "keywords": [
+    "USB串口通信",
+    "android",
+    "uts插件",
+    "usb-serial",
+    "usb-serial-android"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^3.99"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "contact": {
+      "qq": "1786276831"
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "无",
+      "permissions": "USB读写权限"
+    },
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "y",
+        "aliyun": "y",
+        "alipay": "y"
+      },
+      "client": {
+        "Vue": {
+          "vue2": "y",
+          "vue3": "y"
+        },
+        "App": {
+            "app-android": {
+                "minVersion": "20"
+            },
+            "app-ios": "n",
+            "app-harmony": "u"
+        },
+        "H5-mobile": {
+          "Safari": "n",
+          "Android Browser": "n",
+          "微信浏览器(Android)": "n",
+          "QQ浏览器(Android)": "n"
+        },
+        "H5-pc": {
+          "Chrome": "n",
+          "IE": "n",
+          "Edge": "n",
+          "Firefox": "n",
+          "Safari": "n"
+        },
+        "小程序": {
+          "微信": "n",
+          "阿里": "n",
+          "百度": "n",
+          "字节跳动": "n",
+          "QQ": "n",
+          "钉钉": "n",
+          "快手": "n",
+          "飞书": "n",
+          "京东": "n"
+        },
+        "快应用": {
+          "华为": "n",
+          "联盟": "n"
+        }
+      }
+    }
+  }
+}

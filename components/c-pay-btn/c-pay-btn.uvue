@@ -1,18 +1,3 @@
-<template>
-	<view class="payBtnBox">
-		<view v-for="(item,index) in list" hover-class="hover-class" :hover-stay-time="200"
-			:class="['payBtnBox-item',{'payBtnBox-item-first':index==0}]" :style="{backgroundColor:item.backgorundColor}"
-			@click="onTapFn(item)">
-			<image class="payBtnBox-item-image" :src="item.image"></image>
-			<view class="textBox">
-				<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
-				<text :style="{color:item.color}" class="text-subTitle">{{item.sub_title}}</text>
-				<text :style="{color:item.color}" class="text-desc">{{item.desc}}</text>
-			</view>
-		</view>
-	</view>
-</template>
-
 <script setup>
 	/**
 	 * 支付按钮组件
@@ -38,6 +23,21 @@
 	}
 </script>
 
+<template>
+	<view class="payBtnBox">
+		<view v-for="(item,index) in list" hover-class="hover-class" :hover-stay-time="200"
+			:class="['payBtnBox-item',{'payBtnBox-item-first':index==0}]" :style="{backgroundColor:item.backgorundColor}"
+			@click="onTapFn(item)">
+			<image class="payBtnBox-item-image" :src="item.image"></image>
+			<view class="textBox">
+				<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
+				<text :style="{color:item.color}" class="text-subTitle">{{item.sub_title}}</text>
+				<text :style="{color:item.color}" class="text-desc">{{item.desc}}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
 <style lang="scss" scoped>
 	.hover-class {
 		transform: translate(1rpx, 1rpx);
@@ -59,20 +59,17 @@
 			// width: 352px;
 			height: 100%;
 			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: space-between;
-			border-radius: 18rpx;
-			padding: 9rpx 10rpx;
+			flex-direction: row;
+			align-items:flex-start;
+			border-radius: 16rpx;
+			padding: 10rpx 12rpx;
 			margin-left: 9rpx;
-
 			.textBox {
 				position: relative;
 				display: flex;
 				flex: 1;
 				flex-direction: column;
 				align-items: flex-start;
-
 				.text-title {
 					text-align: left;
 					font-size: 13rpx;
@@ -99,8 +96,8 @@
 			.payBtnBox-item-image {
 				position: absolute;
 				z-index: -1;
-				right: 3rpx;
-				bottom: 4rpx;
+				right: 8rpx;
+				bottom: 10rpx;
 				width: 44rpx;
 				height: 44rpx;
 			}

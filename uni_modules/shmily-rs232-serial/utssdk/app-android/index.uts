@@ -1,0 +1,123 @@
+
+import SerialPortFinder from 'android_serialport_api.SerialPortFinder';
+import SerialHelper from 'com.shmily.serialport.SerialHelper';
+import ComBean from 'com.shmily.serialport.bean.ComBean';
+import ByteUtil from 'com.shmily.serialport.utils.ByteUtil';
+import StandardCharsets from 'java.nio.charset.StandardCharsets';
+import { IConnectOptions, IDataType } from '../interface';
+import Toast from 'android.widget.Toast';
+
+
+class MySerialHelper extends SerialHelper {
+  private outerSerial : RS232Serial;
+  constructor(opt : IConnectOptions, outerSerial : RS232Serial) {
+    super(opt.port, opt.baudRate.toInt());
+    this.setBaudRate(opt.baudRate.toInt());
+    this.setDataBits(opt.dataBits.toInt());
+    this.setStopBits(opt.stopBits.toInt());
+    this.setParity(opt.parity.toInt());
+    this.setFlowCon(opt.flowCon.toInt());
+    this.outerSerial = outerSerial;
+  }
+  override onDataReceived(comBean : ComBean) : void {
+    if (this.outerSerial.globalMsgCallback != null) {
+      if (this.outerSerial.mDataType == 'ASCII') {
+        this.outerSerial.globalMsgCallback?.invoke(new String(comBean.bRec, StandardCharsets.UTF_8));
+      } else {
+        this.outerSerial.globalMsgCallback?.invoke(ByteUtil.Bytes2Hex(comBean.bRec));
+      }
+    }
+  }
+}
+
+export function checkHasIntegration() : boolean {
+  try {
+    Class.forName("com.shmily.serialport.SerialHelper");
+    return true;
+  } catch (e : Exception) {
+    return false;
+  }
+}
+
+export class RS232Serial {
+  serialHelper : MySerialHelper | null = null;
+  mDataType : IDataType = 'ASCII';
+  globalMsgCallback : ((data : string) => void) | null = null;
+  constructor() { }
+  getDeviceList(): string[] {
+    const serialPortFinder = new SerialPortFinder();
+    try {
+      const ports = serialPortFinder.getAllDevicesPath();
+      if (ports.size > 0) {
+        return Array.fromNative(ports);
+      }
+      return [];
+    } catch (e) {
+      Toast.makeText(UTSAndroid.getUniActivity(), e.message, Toast.LENGTH_LONG).show();
+      return [];
+    }
+  }
+  isOpen() : boolean {
+    if (this.serialHelper == null) {
+      return false;
+    }
+    return this.serialHelper!.isOpen();
+  }
+  open(opt : IConnectOptions) : boolean {
+    try {
+      this.serialHelper = new MySerialHelper(opt, this);
+      this.serialHelper!.open();
+      return true;
+    } catch (e) {
+      console.error(e)
+      return false;
+    }
+  }
+  sendHex(hexStr : string) : void {
+    if (this.serialHelper == null) {
+      console.error('Serial port is not open');
+      return;
+    }
+    if (this.isOpen()) {
+      const hexPure = hexStr.trim().replace(/\s/g, '');
+      if (hexPure != '') {
+        this.serialHelper!.sendHex(hexPure);
+      } else {
+        console.error('Hex is empty or null');
+      }
+    } else {
+      console.error('Serial port is not open');
+    }
+  }
+  sendText(text : string) : void {
+    if (this.serialHelper == null) {
+      console.error('Serial port is not open');
+      return;
+    }
+    if (this.isOpen()) {
+      if (text.trim() != '') {
+        this.serialHelper!.sendTxt(text);
+      } else {
+        console.error('Text is empty or null');
+      }
+    } else {
+      console.error('Serial port is not open');
+    }
+  }
+  @UTSJS.keepAlive
+  subscribe(dataType : IDataType, callback : (data : string) => void) : void {
+    this.mDataType = dataType;
+    this.globalMsgCallback = callback;
+  }
+  unsubscribe() : void {
+    this.globalMsgCallback = null;
+  }
+  close(): boolean {
+    if (!this.isOpen()) {
+      console.error('Serial port is not open');
+      return false;
+    }
+    this.serialHelper!.close();
+    return true;
+  }
+}

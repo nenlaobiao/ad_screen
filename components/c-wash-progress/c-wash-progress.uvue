@@ -1,20 +1,8 @@
-<template>
-	<image class="wash-progress-bg" src="/static/BG/wash.png" />
-	<view class="wash-progress">
-		<text>你好</text>
-		<text>{{remainingTime}}</text>
-		<text>为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
-		<view class="" >
-			<image :class="['img',{afoot:true}]" src="/static/status/shower.png" />
-		</view>
-	</view>
-</template>
-
 <script setup>
 	/**
 	 * 洗宠机步骤显示
 	 */
-	import { State } from "./types.uts"
+	import { State, WashMode } from "./types.uts"
 	const props = defineProps({
 		progress: {
 			type: String,
@@ -25,19 +13,55 @@
 			default: 0
 		},
 	})
-	// const washMode = {
-	// 	basis:[
-	// 		{
-	// 			ico:'/static/status'
-	// 		}
-	// 	],
-	// 	enhance:[
-			
-	// 	]
-	// }
+	const washMode : WashMode = {
+		basis: [
+			{
+				title: '机器消毒',
+				status: 5,
+				icon: '/static/status/sterilize.png',
+				afoot: true
+			},
+			{
+				title: '喷水清洗',
+				status: 20,
+				icon: '/static/status/flush.png',
+				afoot: false
+			},
+			{
+				title: '喷沐浴露',
+				status: 30,
+				icon: '/static/status/shower.png',
+				afoot: false
+			},
+			{
+				title: '喷水清洗',
+				status: 40,
+				icon: '/static/status/flush.png',
+				afoot: false
+			},
+			{
+				title: '喷护毛素',
+				status: 50,
+				icon: '/static/status/shower.png',
+				afoot: false
+			},
+			{
+				title: '喷水清洗',
+				status: 60,
+				icon: '/static/status/flush.png',
+				afoot: false
+			},
+			{
+				title: '宠物烘干',
+				status: 70,
+				icon: '/static/status/dry.png',
+				afoot: false
+			},
+		]
+	}
 	const state = reactive<State>({
 	})
-	const remainingTime = computed<string>(()=>{
+	const remainingTime = computed<string>(() => {
 		let seconds = Number.from(props.seconds as number)
 		if (seconds < 0) seconds = 0; // 防止负数
 		const minutes = Math.floor(seconds / 60);
@@ -47,8 +71,28 @@
 		const ss = secs < 10 ? `0${secs}` : `${secs}`
 		return `${mm}:${ss}`;
 	})
-
 </script>
+
+<template>
+	<image class="wash-progress-bg" src="/static/BG/wash.png" />
+	<view class="wash-progress">
+		<text class="wash-progress-timetitle">步骤结束时间</text>
+		<text class="wash-progress-time">{{remainingTime}}</text>
+		<text class="wash-progress-tips">为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
+		<view class="progresBox">
+			<view :class="['progresBox-item',{afoot:item.afoot}]" v-for="(item,index) in washMode.basis">
+				<image class="img" :src="item.icon" />
+				<text class="title">{{item.title}}</text>
+				<view class="indexBox">
+					<image class="icon" v-if="item.afoot" src="/static/icon/checkmarkempty.png" />
+					<text class="index" v-else>{{index + 1}}</text>
+				</view>
+				<view :class="['line',{linelast: index == (washMode.basis.length - 1)}]" />
+			</view>
+		</view>
+		<text class="wash-progress-error">紧急情况请拍按右上方急停按钮</text>
+	</view>
+</template>
 
 <style lang="scss">
 	.wash-progress-bg {
@@ -69,16 +113,118 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		
-		.img{
-			height: 28rpx;
-			width: 28rpx;
-			background-color: #409ECF;
-			border-radius: 25rpx;
+
+		.wash-progress-timetitle {
+			font-size: 20rpx;
+			color: #2E87B5;
+			font-weight: bold;
+			margin-top: 34rpx;
 		}
-		.afoot{
-			background-color: #F2FBFF;
+
+		.wash-progress-time {
+			font-size: 28rpx;
+			color: #2E87B5;
+			margin-top: 4rpx;
+			font-weight: bold;
+		}
+
+		.wash-progress-tips {
+			font-size: 8rpx;
+			color: #2E87B5;
+			font-weight: bold;
+			margin-top: 4rpx;
+		}
+
+		.progresBox {
+			width: 100%;
+			display: flex;
+			flex-direction: row;
+			justify-content: space-evenly;
+			padding: 0 10rpx;
+			margin-top: 10rpx;
+			.progresBox-item {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				position: relative;
+				overflow: visible;
+				flex: 1;
+
+				.img {
+					height: 34rpx;
+					width: 34rpx;
+					background-color: #F2FBFF;
+					border-radius: 25rpx;
+					margin-bottom: 8rpx;
+				}
+
+
+				.title {
+					font-size: 7rpx;
+					font-weight: bold;
+					color: #2E87B5;
+					margin-bottom: 8rpx;
+				}
+
+				.indexBox {
+					height: 12rpx;
+					width: 12rpx;
+					background-color: #fff;
+					border-radius: 12rpx;
+					display: flex;
+					flex-direction: row;
+					align-items: center;
+					justify-content: center;
+					position: relative;
+					z-index: 10;
+
+					.icon {
+						height: 6rpx;
+						width: 6rpx;
+					}
+
+					.index {
+						line-height: 13rpx;
+						font-size: 8rpx;
+						font-weight: bold;
+						color: #2E87B5;
+					}
+				}
+
+				.line {
+					width: 100%;
+					border-bottom: 1rpx dashed #2E87B5;
+					position: absolute;
+					z-index: -10;
+					bottom: 5rpx;
+					transform: translateX(50%);
+				}
+
+				.linelast {
+					display: none !important;
+				}
+			}
+
+			.afoot {
+				.img {
+					background-color: #409ECF;
+				}
+
+				.indexBox {
+					background-color: #2E87B5;
+				}
+			}
+		}
+		.wash-progress-error{
+			margin-top: 18rpx;
+			height: 20rpx;
+			padding: 0 10rpx;
+			background-color: #DAF0FC;
+			border-radius: 10rpx;
+			line-height: 21rpx;
+			font-size: 10rpx;
+			font-weight: bold;
+			color: #2E87B5;
 		}
 	}
 </style>

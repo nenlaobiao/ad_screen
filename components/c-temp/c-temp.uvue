@@ -1,13 +1,3 @@
-<template>
-	<view class="tempBox">
-		<image class="tempBox-item-icon" src="/static/icon/room.png" />
-		<text class="tempBox-item-text">室温：{{ cage }}℃</text>
-		<view class="line" />
-		<image class="tempBox-item-icon" src="/static/icon/water.png" />
-		<text class="tempBox-item-text">水温：{{ water }}℃</text>
-	</view>
-</template>
-
 <script setup>
 	/**
 	 * 右上角温度显示
@@ -23,6 +13,16 @@
 		}
 	})
 </script>
+
+<template>
+	<view class="tempBox">
+		<image class="tempBox-item-icon" src="/static/icon/room.png" />
+		<text class="tempBox-item-text">室温：{{ cage }}℃</text>
+		<view class="line" />
+		<image class="tempBox-item-icon" src="/static/icon/water.png" />
+		<text class="tempBox-item-text">水温：{{ water }}℃</text>
+	</view>
+</template>
 
 <style lang="scss" scoped>
 	.tempBox {

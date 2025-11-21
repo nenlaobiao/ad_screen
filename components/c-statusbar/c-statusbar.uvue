@@ -1,11 +1,3 @@
-<template>
-	<view class="statusbar">
-		<text class="statusbar-text" v-for="item in list" :key="item.name">
-			{{`${item.name}：${item.value()}${item.unit ?? ''}`}}
-		</text>
-	</view>
-</template>
-
 <script setup>
 	/**
 	 * 底部状态栏
@@ -47,6 +39,14 @@
 		},
 	})
 </script>
+
+<template>
+	<view class="statusbar">
+		<text class="statusbar-text" v-for="item in list" :key="item.name">
+			{{`${item.name}：${item.value()}${item.unit ?? ''}`}}
+		</text>
+	</view>
+</template>
 
 <style lang="scss" scoped>
 	.statusbar {

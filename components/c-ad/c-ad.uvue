@@ -1,22 +1,3 @@
-<template>
-	<view class="ad">
-		<swiper class="ad-swiper" v-if="list.length > 0" :vertical="false" :circular="false" :autoplay="false" @change="swiperChange">
-			<swiper-item v-for="ad in list" :key="ad.data.id">
-				<!-- 视频广告 -->
-				<template v-if="ad.data.type == 'video'">
-					<video class="swiper-video" :src="ad.path" object-fit="contain" />
-				</template>
-				<!-- 图片广告 -->
-				<template v-if="ad.data.type == 'image'">
-					<image class="swiper-img" :src="ad.path" mode="aspectFit" />
-				</template>
-			</swiper-item>
-		</swiper>
-		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
-	</view>
-	<view class="ad-border" />
-</template>
-
 <script setup>
 	/**
 	 * 洗宠机广告
@@ -28,7 +9,11 @@
 	  list: {
 	    type: Array as PropType<dFile[]>,
 	    default: () => []  // 数组/对象必须用函数返回
-	  }
+	  },
+		touch:{
+			type:Boolean,
+			default:false
+		}
 	})
 	const emits = defineEmits<{
 		(e:"change",event:CAdChange) :void
@@ -45,6 +30,26 @@
 		})
 	}
 </script>
+
+<template>
+	<view class="ad">
+		<swiper class="ad-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="15000"
+			:vertical="false" :circular="false" :autoplay="true" @change="swiperChange">
+			<swiper-item v-for="ad in list" :key="ad.data.id">
+				<!-- 视频广告 -->
+				<template v-if="ad.data.type == 'video'">
+					<video class="swiper-video" :src="ad.path" object-fit="contain" />
+				</template>
+				<!-- 图片广告 -->
+				<template v-if="ad.data.type == 'image'">
+					<image class="swiper-img" :src="ad.path" mode="aspectFit" />
+				</template>
+			</swiper-item>
+		</swiper>
+		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
+	</view>
+	<view class="ad-border" />
+</template>
 
 <style lang="scss" scoped>
 	.ad{

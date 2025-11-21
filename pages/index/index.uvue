@@ -214,8 +214,8 @@
 				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
 				
-				<!-- 洗护进度 （待开发） -->
-				<c-wash-progress  v-if="true" />
+				<!-- 洗护进度 -->
+				<c-wash-progress  v-if="false" />
 			</view>
 
 		</view>

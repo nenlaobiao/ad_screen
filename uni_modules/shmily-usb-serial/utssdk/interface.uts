@@ -1,0 +1,56 @@
+/**
+ * @param deviceName 设备名称
+ * @param deviceId 设备id
+ * @param vendorId 供应商id
+ * @param productId 产品id
+ * @param productName 产品名称
+ */
+export type IDeviceItem = {
+  deviceName : string,
+  deviceId : number,
+  vendorId : number,
+  productId : number,
+  productName ?: string
+}
+
+/**
+ * @param productName 产品名称
+ * @param productId 产品
+ * @param baudRate 波特率
+ * @param dataBits 数据位
+ * @param stopBits 停止位
+ * @param parity 校验位
+ */
+export type IConnectOptions = {
+  vendorId : number,
+  productId : number,
+  baudRate : number,
+  dataBits : number,
+  stopBits : number,
+  parity : number,
+}
+
+/**
+ * @param data 数据
+ * @param success 操作是否成功
+ * @param message 错误信息
+ */
+export type IOperData = {
+  data ?: any,
+  success : boolean,
+  message ?: string
+}
+
+/**
+ * 数据类型：16进制或者ASCII字符
+ */
+export type IDataType = 'HEX' | 'ASCII';
+
+/**
+ * @param dataType 数据类型
+ * @param readBufferSize 读取缓冲区大小
+ */
+export type IReadOptions = {
+  dataType : IDataType,
+  bufferSize ?: number
+}

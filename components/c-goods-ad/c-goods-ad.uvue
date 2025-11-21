@@ -1,27 +1,3 @@
-<template>
-	<view class="goodsAdBox">
-		<swiper class="goods-swiper" v-if="list.length > 0" :vertical="false"
-			:circular="false" :autoplay="false" @change="swiperChange">
-			<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
-				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
-				<view class="goods-info">
-					<text class="goods-info-title">{{ad.data.title}}</text>
-					<text class="goods-info-tips">微信扫码购买</text>
-					<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
-				</view>
-			</swiper-item>
-		</swiper>
-		<view v-else class="goodsAd-empty">
-			<image class="empty-qr" src="/static/mpqr.png" />
-			<view class="empty-textBox">
-				<text class="textBox-title">侎宠小程序</text>
-				<text class="textBox-tips">扫一扫，即刻开启爱宠专属的优质服务体验！</text>
-			</view>
-		</view>
-	</view>
-	<view class="goodsAd-border" />
-</template>
-
 <script setup>
 	/**
 	 * 商品广告
@@ -34,7 +10,15 @@
 	  list: {
 	    type: Array as PropType<dFile[]>,
 	    default: () => []  // 数组/对象必须用函数返回
-	  }
+	  },
+		touch:{
+			type:Boolean,
+			default:true
+		},
+		interval:{
+			type:Number,
+			default:6000
+		}
 	})
 	const emits = defineEmits<{
 		(e:"change",event:CAdChange) :void
@@ -55,6 +39,30 @@
 		})
 	}
 </script>
+
+<template>
+	<view class="goodsAdBox">
+		<swiper class="goods-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="interval"
+			:vertical="false":circular="true" :autoplay="true" @change="swiperChange">
+			<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
+				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
+				<view class="goods-info">
+					<text class="goods-info-title">{{ad.data.title}}</text>
+					<text class="goods-info-tips">微信扫码购买</text>
+					<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
+				</view>
+			</swiper-item>
+		</swiper>
+		<view v-else class="goodsAd-empty">
+			<image class="empty-qr" src="/static/mpqr.png" />
+			<view class="empty-textBox">
+				<text class="textBox-title">侎宠小程序</text>
+				<text class="textBox-tips">扫一扫，即刻开启爱宠专属的优质服务体验！</text>
+			</view>
+		</view>
+	</view>
+	<view class="goodsAd-border" />
+</template>
 
 <style lang="scss" scoped>
 	.goodsAdBox{
