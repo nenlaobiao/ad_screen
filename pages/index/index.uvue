@@ -95,7 +95,7 @@
 		return ossUrl + url
 	}
 	function adChange(e : any) {
-		console.log('adChange', e as CAdChange)
+		// console.log('adChange', e as CAdChange)
 	}
 	function payTap(e : DeviceInfo) {
 		state.petWash = e
@@ -216,6 +216,8 @@
 				
 				<!-- 洗护进度 -->
 				<c-wash-progress  v-if="false" />
+				
+				<c-demo v-if="true" />
 			</view>
 
 		</view>

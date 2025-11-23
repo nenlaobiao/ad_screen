@@ -1,0 +1,10 @@
+/**
+ * 串口发送队列中的单个请求项
+ */
+export interface QueuedRequest {
+    frame: string; // 存储带 CRC 的完整帧
+    resolve: (response: string) => void; // 成功回调 (返回不带 CRC 的数据)
+    reject: (error: Error) => void; // 失败回调
+    retriesLeft: number; // 剩余重试次数
+    timeoutTimer: number | null; // 超时定时器 ID
+}

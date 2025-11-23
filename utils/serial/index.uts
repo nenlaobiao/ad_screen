@@ -1,0 +1,224 @@
+import { RS232Serial } from '@/uni_modules/shmily-rs232-serial';
+import {checkCRC16} from "./utils.uts"
+import { delay } from "@/utils/tools.uts"
+
+const STORAGE_KEY_LAST_PORT = "LAST_SERIAL_PORT"
+/**
+ * RS232 串口管理类（支持 Modbus RTU 自动连接）
+ */
+export class SerialManager {
+	private serialPort : RS232Serial
+	private baud : number
+	// 存储 tryPort 的 resolve 函数，用于在数据订阅回调中触发成功
+	private currentResolve : ((ok : boolean) => void) | null = null
+	private testFrame : string
+	private intervalMultiplier : number
+	private tryConnect : boolean // 正在尝试连接的标志
+	public intervalMs : number
+	public connecting : boolean // 已成功连接的标志
+
+	constructor(baud : number = 19200, testFrame : string = "01 03 02 BC 00 0A 05 91", intervalMultiplier : number = 4) {
+		this.serialPort = new RS232Serial()
+		this.baud = baud
+		this.testFrame = testFrame
+		this.intervalMultiplier = intervalMultiplier
+		this.intervalMs = this.calcIntervalMs()
+		this.tryConnect = false
+		this.connecting = false
+	}
+
+
+	/** 计算 RTU 静默间隔毫秒 */
+	public calcIntervalMs() : number {
+		const tMs = 11 / this.baud * 1000   // 1T 单位毫秒
+		return Math.ceil(tMs * this.intervalMultiplier)
+	}
+
+	/** 自动扫描串口并尝试连接 Modbus PLC */
+	public async autoConnect(timeout = 800) : Promise<void> {
+		// 防止重复触发连接流程
+		if (this.tryConnect || this.connecting) return
+
+		this.tryConnect = true
+		this.connecting = false // 重置连接状态
+
+		// 订阅数据：在 autoConnect 开始时设置监听器。
+		// 依赖 checkCRC16 和 currentResolve 来判断当前数据是否有效。
+		this.serialPort.subscribe('HEX', (data : string) => {
+			// 只有当存在一个激活的 tryPort 尝试时，且数据 CRC 校验通过，才触发成功
+			if (checkCRC16(data) && this.currentResolve != null) {
+				const resolveFunc = this.currentResolve // 确保调用 resolve 前不会被其他逻辑覆盖
+				resolveFunc(true)  // 收到有效数据，认为连接成功
+			}
+		})
+
+		const ports = this.serialPort.getDeviceList()
+		console.log("可用串口列表:", ports)
+
+		// 尝试读取缓存端口
+		const lastPort = uni.getStorageSync(STORAGE_KEY_LAST_PORT) as string | null
+		if (lastPort != null && ports.includes(lastPort)) {
+			if (await this.tryPort(lastPort, timeout)) {
+				console.log("✔ 成功连接上次端口:", lastPort)
+				this.tryConnect = false
+				this.connecting = true
+				return
+			}
+		}
+
+		// 遍历所有端口尝试连接
+		for (const port of ports) {
+			const ok = await this.tryPort(port, timeout)
+			if (ok) {
+				console.log("✔ 成功连接到 Modbus PLC:", port)
+				uni.setStorageSync(STORAGE_KEY_LAST_PORT, port) // 缓存成功端口
+				this.tryConnect = false
+				this.connecting = true
+				return
+			}
+		}
+
+		// 所有尝试都失败
+		this.tryConnect = false
+		this.connecting = false
+		console.error("未找到可用的 Modbus 设备")
+	}
+
+	/** 尝试打开单个端口并发送测试帧 */
+	private tryPort(port : string, timeout : number) : Promise<boolean> {
+		const self = this
+		let timeoutTimerId : number | null = null
+		let initialDelayTimerId : number | null = null
+
+		return new Promise<boolean>(function (resolve : (ok : boolean) => void) {
+			console.log(`尝试端口: ${port}`)
+			let settled = false
+
+			/**
+			 * 统一的 Promise 解决函数，确保只调用一次，并进行资源清理
+			 * @param ok 是否成功
+			 */
+			const finalResolve = (ok : boolean) => {
+				if (!settled) {
+					settled = true
+
+					// 1. 清除所有定时器
+					const tId = timeoutTimerId
+					if (tId != null) clearTimeout(tId)
+					const dId = initialDelayTimerId
+					if (dId != null) clearTimeout(dId)
+					
+					// 2. 清除全局 resolve 引用，防止数据订阅回调错误触发
+					self.currentResolve = null
+
+					// 3. 健壮性改进：如果连接失败 (ok=false)，必须关闭串口
+					if (!ok) {
+						try {
+							// 只有在串口成功打开后才尝试关闭。如果打开失败，则无需关闭。
+							// 但为了安全起见，此处尝试关闭以释放资源。
+							self.serialPort.close()
+							console.log(`端口 ${port} 尝试失败，已确保关闭。`)
+						} catch (e) {
+							// 忽略关闭时的错误，因为它可能本来就没打开
+							console.warn(`关闭端口 ${port} 时可能发生错误 (可能未成功打开):`, e)
+						}
+					}
+					
+					// 4. 解决 Promise
+					resolve(ok)
+				}
+			}
+
+			// 设置全局 resolve，供数据订阅回调使用
+			self.currentResolve = finalResolve
+
+			// 尝试打开串口
+			try {
+				self.serialPort.open({
+					port,
+					baudRate: self.baud,
+					dataBits: 8,
+					stopBits: 1,
+					parity: 0,
+					flowCon: 0
+				})
+			} catch (err) {
+				console.error(`端口 ${port} 打开失败:`, err)
+				// 打开失败，直接 resolve false，不需要再设置超时或发送
+				finalResolve(false) 
+				return
+			}
+
+			// 延时发送测试帧，保证串口稳定（80ms 是经验值）
+			initialDelayTimerId = setTimeout(function () {
+				try {
+					self.serialPort.sendHex(self.testFrame)
+				} catch (err) {
+					console.warn(`端口 ${port} 发送测试帧失败`, err)
+					// 发送失败不立即判定失败，等待超时，因为有时打开成功但首次发送会失败
+				}
+			}, 80)
+
+			// 设置超时处理
+			timeoutTimerId = setTimeout(function () {
+				console.log(`端口 ${port} 超时未收到响应。`)
+				finalResolve(false)
+			}, timeout)
+		})
+	}
+
+	/** 发送 HEX 指令 */
+	public async sendHex(frame : string) {
+		// 如果正在尝试连接但未成功，则阻止发送
+		if (this.tryConnect && !this.connecting) {
+			console.warn("串口正在尝试连接中，发送操作被阻止。")
+			return
+		}
+		// 如果未连接，则阻止发送
+		if (!this.connecting) {
+			console.warn("串口未连接，发送操作被阻止。")
+			return
+		}
+
+		try {
+			this.serialPort.sendHex(frame)
+			await delay(this.intervalMs) // 等待 Modbus RTU 静默间隔
+		} catch (err) {
+			console.error("发送 HEX 指令失败:", err)
+		}
+	}
+
+	/** 关闭串口 */
+	public close() {
+		try {
+			this.serialPort.close()
+			this.connecting = false
+			this.tryConnect = false // 停止任何尝试连接状态
+			this.currentResolve = null // 清除任何悬挂的 resolve
+			console.log("串口已成功关闭。")
+		} catch (e) {
+			console.error("关闭串口时发生错误:", e)
+		}
+	}
+
+	/** 订阅数据（自定义） */
+	public subscribe(callback : (data : string) => void) {
+		// 仅在连接成功后允许订阅用户自定义回调
+		if (!this.connecting) {
+			console.warn("串口未连接，无法订阅数据。")
+			return
+		}
+		this.serialPort.subscribe('HEX', (hex:string)=>{
+			if(checkCRC16(hex)){
+				callback(hex)
+			}
+		})
+	}
+	
+	/** 获取可用端口列表 */
+	public getDeviceList() : string[] {
+		// 无论是否连接成功，都应该能获取设备列表，但为了保持原代码逻辑，暂时保留限制。
+		// 实际应用中，此函数不应受连接状态限制。
+		return this.serialPort.getDeviceList()
+	}
+}

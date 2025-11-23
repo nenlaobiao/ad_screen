@@ -1,0 +1,72 @@
+<script setup>
+	/**
+	 * 测试demo
+	 */
+	import { State } from "./types.uts"
+	import { ModbusQueue } from "@/utils/serial/queue.uts"
+	
+	const serial = new ModbusQueue((hex,res,status)=>{
+		console.log('ModbusQueue',hex,res,status)
+		
+		/////////////// 需要优化 、优化 open，扩展ModbusQueue方法
+	})
+	const props = defineProps({
+		progress: {
+			type: String,
+			default: ''
+		}
+	})
+	const state = reactive<State>({
+		isOpen:false,
+	})
+	function autoConnect(){
+		serial.open()
+	}
+	function close(){
+		// serial.close()
+	}
+	function sendHex(){
+		serial.push('01030016000165CE')
+	}
+	function pushBatch(){
+		serial.pushBatch(['0103001A0001A5CD','0103001C000145CC','0103002E0001E403','0103001E0001E40C','01030020000185C0','0103002200012400','010300240001C401'])
+	}
+	function subscribe(){
+		serial.startListener()
+		// serial.subscribe((res)=>{
+		// 	console.log('subscribe',res)
+		// })
+	}
+</script>
+
+<template>
+	<view class="demo">
+		<button class="demo-btn" @click="autoConnect">autoConnect</button>
+		<button class="demo-btn" @click="close">close</button>
+		<button class="demo-btn" @click="subscribe">subscribe</button>
+		<button class="demo-btn" @click="sendHex">sendHex</button>
+		<button class="demo-btn" @click="pushBatch">pushBatch</button>
+	</view>
+</template>
+
+<style lang="scss">
+	.demo {
+		height: 100%;
+		width: 100%;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background-color: skyblue;
+		.demo-btn{
+			font-size: 10rpx;
+			line-height: 20rpx;
+			height: 20rpx;
+			border-radius: 20rpx;
+			margin-bottom: 4rpx;
+		}
+	}
+</style>

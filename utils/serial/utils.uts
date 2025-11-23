@@ -1,0 +1,67 @@
+/**
+ * 将 HEX 字符串转换为字节数组 (Uint8Array)
+ */
+export function hexStringToBytes(hexString: string): Uint8Array {
+    if (hexString.length % 2 !== 0) {
+        // 在 UTS 中，可能需要更明确地抛出异常
+        throw new Error("无效的十六进制字符串：必须包含偶数个字符。");
+    }
+    const length = hexString.length / 2;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+        bytes[i] = parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+/**
+ * 计算 Modbus CRC16
+ * @param hexString 待校验的 HEX 字符串 (例如 '010300000001')
+ * @returns 4 位的 HEX CRC16 校验码 (例如 'C40B')
+ */
+export function calculateCRC16(hexString: string): string {
+    let crc = 0xFFFF;
+    let buffer: Uint8Array;
+    try {
+        buffer = hexStringToBytes(hexString);
+    } catch (e) {
+        console.error("calculateCRC16 Error:", e);
+        return "";
+    }
+
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= buffer[i];
+
+        for (let j = 0; j < 8; j++) {
+            if ((crc & 0x0001) !== 0) { 
+                crc >>= 1;
+                crc ^= 0xA001; // Modbus RTU 多项式 (0x8005 反转)
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    
+    // 格式化为 4 位 HEX 字符串，并交换字节 (Modbus RTU LSB-first)
+    const crcHex = crc.toString(16).toUpperCase().padStart(4, '0');
+    return crcHex.substring(2, 4) + crcHex.substring(0, 2);
+}
+
+/**
+ * 校验 Modbus RTU 响应帧的 CRC16
+ * @param fullFrame 完整的 HEX 响应帧，包括 CRC (例如 '010302006E39A8')
+ * @returns boolean 校验结果
+ */
+export function checkCRC16(fullFrame: string): boolean {
+    if (fullFrame.length < 4 || fullFrame.length % 2 !== 0) { 
+        return false;
+    }
+    const receivedCRC = fullFrame.substring(fullFrame.length - 4);
+    const dataWithoutCRC = fullFrame.substring(0, fullFrame.length - 4);
+	const calculatedCRC = calculateCRC16(dataWithoutCRC);
+    if (calculatedCRC == receivedCRC) {
+        return true;
+    } else {
+        return false;
+    }
+}
