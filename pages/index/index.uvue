@@ -1,13 +1,15 @@
 <script setup lang="uts">
+	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
+	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
-	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
 	import type { Goods } from '@/api/types/goodsTypes.uts'
-	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import fileManage, { ossUrl } from "@/utils/file.uts"
-	import { toNewObject, toNewArray } from "@/utils/tools.uts"
-	import API from '@/api/index.uts'
 	import type { ResponseData } from "@/api/types.uts"
+	
+	import { getDeviceInfo, getGoodsInfo, getTemplate } from '@/api/index.uts'
+	import { toNewObject, toNewArray } from "@/utils/tools.uts"
+	import fileManage, { ossUrl } from "@/utils/file.uts"
+	
 	const adData : AdItem[] = [
 		{
 			id: 0,
@@ -83,12 +85,12 @@
 		}
 	]
 	const state = reactive<State>({
-		machineCode:'15294',
+		machineCode: '15294',
 		adList: [],
 		goodsList: [],
 		petWashInfo: [],
-		petWash:null,
-		showPay:false,
+		petWash: null,
+		showPay: false,
 	})
 
 	function cdn(url : string) : string {
@@ -103,10 +105,10 @@
 		console.log('payTap', e.title)
 	}
 	// 获取商品信息
-	async function getGoodsInfo(ids : string) {
+	async function getGoodsInfoFn(ids : string) {
 		try {
 			console.log('加载商品推荐')
-			let res = await API.getGoodsInfo({ ids })
+			let res = await getGoodsInfo({ ids })
 			if (res.error == 0) {
 				let goodsData = res.data as Goods[]
 				if (goodsData.length > 0) {
@@ -127,27 +129,27 @@
 				}
 			}
 		} catch (error) {
-			console.log('getGoodsInfo --- catch', error)
+			console.log('getGoodsInfoFn --- catch', error)
 		}
 	}
 	// 获取套餐信息
-	async function getDeviceInfo() {
+	async function getDeviceInfoFn() {
 		try {
 			console.log('加载套餐信息')
-			let res = await API.getDeviceInfo()
+			let res = await getDeviceInfo()
 			if (res.error == 0) {
 				let data = toNewArray<DeviceInfo>(res.data)
 				state.petWashInfo = data
 				state.petWash = data[0]
 			}
 		} catch (error) {
-			console.log('getDeviceInfo --- catch', error)
+			console.log('getDeviceInfoFn --- catch', error)
 		}
 	}
 	// 获取装修模板信息
 	async function getTemplateFn() {
 		try {
-			let res = await API.getTemplate()
+			let res = await getTemplate()
 			if (res.error == 0) {
 				let resData = toNewObject<TempObject>(res.data)
 				let templateData = resData.template.home?.data
@@ -160,7 +162,7 @@
 						let ids = goodsClassData.templateList[0].goodsIds
 						let adIds = ids.slice(0, 4).map(n => `${n}`).join(',')
 						console.log('adIds', adIds)
-						getGoodsInfo(adIds)
+						getGoodsInfoFn(adIds)
 					}
 				}
 			}
@@ -168,14 +170,14 @@
 			console.log('getTemplate --- 请求失败', error)
 		}
 	}
-	function payBack(){
+	function payBack() {
 		state.showPay = false
 	}
 
 	const seconds = 66
 	onLoad(() => {
 		getTemplateFn()
-		getDeviceInfo()
+		getDeviceInfoFn()
 		fileManage(adData).then((res : dFile[]) => {
 			state.adList = res
 		})
@@ -207,16 +209,16 @@
 				<view class="paybtn" v-show="true">
 					<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
 				</view>
-				
+
 				<!-- 套餐支付页 -->
-				<c-pay-info v-if="state.showPay" :data="state.petWash" :machineCode="state.machineCode" @back="payBack"/>
-				
+				<c-pay-info v-if="state.showPay" :data="state.petWash" :machineCode="state.machineCode" @back="payBack" />
+
 				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
-				
+
 				<!-- 洗护进度 -->
-				<c-wash-progress  v-if="false" />
-				
+				<c-wash-progress v-if="false" />
+
 				<c-demo v-if="true" />
 			</view>
 
@@ -277,12 +279,14 @@
 					height: calc(278rpx - 12rpx);
 				}
 			}
-			.rightBox{
+
+			.rightBox {
 				position: absolute;
 				left: 404rpx;
 				top: 27rpx;
 				width: 327rpx;
 				height: 267rpx;
+
 				// ---------- 商品广告---------
 				.goodsAd {
 					position: absolute;

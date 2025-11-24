@@ -1,100 +1,103 @@
-import { request } from './request.uts';
 import type { ResponseData } from "@/api/types.uts"
 
-type API = {
-	getTemplate:()=> Promise<ResponseData>;
-	getGoodsInfo:(params:UTSJSONObject)=> Promise<ResponseData>;
-	getDeviceInfo:()=> Promise<ResponseData>;
+import { request } from './request.uts';
+import { baseUrl } from "@/config.uts"
+
+
+/** 获取装修模板信息 */
+export const getTemplate = () : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/init',
+		method: 'GET',
+		header: { platform: 'App' }
+	})
+	
+/** 获取商品信息 */
+export const getGoodsInfo = (params : UTSJSONObject) : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/goods/goods/ids',
+		method: 'GET',
+		data: params
+	})
+	
+/** 获取设备信息 */
+export const getDeviceInfo = () : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/pet/order/deviceInfo',
+		method: 'GET'
+	})
+
+/** 切换状态 */
+export const checkeStatus = (data : any) : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/pet/order/checkeStatus',
+		method: 'GET',
+		data: data != null ? data : {}
+	})
+	
+/** 短信提醒 */
+export const sendSMS = (data : any) : Promise<ResponseData> =>
+	request({
+		url: '/device/api/index/sms',
+		method: 'POST',
+		data: data != null ? data : {}
+	})
+
+/** ai识别 */
+export const imageAI = (data : any) : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/pet/baidu/getInfo',
+		method: 'POST',
+		data: data != null ? data : {}
+	})
+
+/** 获取ai识别token */
+export const getAccessToken = () : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/pet/baidu/getAccessToken',
+		method: 'GET'
+	})
+
+/** 上传截图 */
+export const saveScreenshot = (data : any) : Promise<ResponseData> =>
+	request({
+		url: '/shop/api/pet/order/saveScreenshot',
+		method: 'POST',
+		data: data != null ? data : {}
+	})
+
+/** 上传 */
+export const upload = (file : string) : Promise<any> => {
+	return new Promise((resolve) => {
+		uni.uploadFile({
+			url: baseUrl + '/file/api/upload',
+			filePath: file,
+			name: 'file',
+			header: { Accept: 'text/json' },
+			success: (uploadFileRes) => {
+				let result : any;
+				try {
+					result = JSON.parse(uploadFileRes.data);
+				} catch (e) {
+					console.log('解析 upload 返回失败', uploadFileRes, file);
+					resolve(false);
+					return;
+				}
+				if (result != null && result.error === 0) {
+					resolve(result.data);
+				} else {
+					console.log('upload上传失败', uploadFileRes, file);
+					uni.showToast({
+						icon: 'none',
+						title: result != null ? result.msg : '上传失败'
+					});
+					resolve(false);
+				}
+			},
+			fail: (err) => {
+				console.log('upload失败', err, file);
+				resolve(false);
+			}
+		});
+	});
 }
-const api:API = { 
-	// 获取装修模板信息
-	getTemplate:()=>
-		request({
-		  url: '/shop/api/init',
-		  method: 'GET',
-		  header: { platform: 'App' }
-		}),
-	// 获取商品信息
-	getGoodsInfo: (params: UTSJSONObject) =>
-	  request({
-	    url: '/shop/api/goods/goods/ids',
-	    method: 'GET',
-	    data: params
-	  }),
-	// 获取设备信息
-	getDeviceInfo: () =>
-	  request({
-	    url: '/shop/api/pet/order/deviceInfo',
-	    method: 'GET'
-	  }),
-  // checkeStatus: (data: any) =>
-  //   request({
-  //     url: '/shop/api/pet/order/checkeStatus',
-  //     method: 'GET',
-  //     data: data != null ? data : {}
-  //   }),
-
-  // sendSMS: (data: any) =>
-  //   request({
-  //     url: '/device/api/index/sms',
-  //     method: 'POST',
-  //     data: data != null ? data : {}
-  //   }),
-
-
-  // imageAI: (data: any) =>
-  //   request({
-  //     url: '/shop/api/pet/baidu/getInfo',
-  //     method: 'POST',
-  //     data: data != null ? data : {}
-  //   }),
-
-  // getAccessToken: () =>
-  //   request({
-  //     url: '/shop/api/pet/baidu/getAccessToken',
-  //     method: 'GET'
-  //   }),
-
-  // saveScreenshot: (data: any) =>
-  //   request({
-  //     url: '/shop/api/pet/order/saveScreenshot',
-  //     method: 'POST',
-  //     data: data != null ? data : {}
-  //   }),
-
-  // upload: (file: string) => {
-  //   return new Promise((resolve) => {
-  //     uni.uploadFile({
-  //       url: baseUrl + '/file/api/upload',
-  //       filePath: file,
-  //       name: 'file',
-  //       header: { Accept: 'text/json' },
-  //       success: (uploadFileRes) => {
-  //         let result: any;
-  //         try {
-  //           result = JSON.parse(uploadFileRes.data);
-  //         } catch (e) {
-  //           console.log('解析 upload 返回失败', uploadFileRes, file);
-  //           resolve(false);
-  //           return;
-  //         }
-  //         if (result != null && result.error === 0) {
-  //           resolve(result.data);
-  //         } else {
-  //           console.log('upload上传失败', uploadFileRes, file);
-  //           uni.showToast({
-  //             icon: 'none',
-  //             title: result != null ? result.msg : '上传失败'
-  //           });
-  //           resolve(false);
-  //         }
-  //       },
-  //       fail: (err) => {
-  //         console.log('upload失败', err, file);
-  //         resolve(false);
-  //       }
-  //     });
-  //   });
-  // }
-};
-export default api
