@@ -18,8 +18,8 @@ export class ModbusQueue {
 
     private _serialFeedback: FeedbackCallback; // 外部回调
 
-    constructor( feedbackCallback: FeedbackCallback = () => {}) {
-        this.serialManager = new SerialManager();
+    constructor( serialManager:SerialManager,feedbackCallback: FeedbackCallback = () => {}) {
+        this.serialManager = serialManager;
         this._serialFeedback = feedbackCallback;
     }
 
@@ -171,10 +171,6 @@ export class ModbusQueue {
             this.nextTask();
         }
     }
-		
-		public open(){
-			this.serialManager.autoConnect()
-		}
     
     /** 批量添加任务 */
     public pushBatch(hexList: string[]) {

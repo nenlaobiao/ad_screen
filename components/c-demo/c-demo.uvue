@@ -3,12 +3,13 @@
 	 * 测试demo
 	 */
 	import { State } from "./types.uts"
+	import { SerialManager } from "@/utils/serial/index.uts"
 	import { ModbusQueue } from "@/utils/serial/queue.uts"
-	
-	const serial = new ModbusQueue((hex,res,status)=>{
+	const serial = new SerialManager()
+	const queue = new ModbusQueue(serial,(hex,res,status)=>{
 		console.log('ModbusQueue',hex,res,status)
 		
-		/////////////// 需要优化 、优化 open，扩展ModbusQueue方法
+		// 使用isOpen来判断连接状态
 	})
 	const props = defineProps({
 		progress: {
@@ -19,31 +20,29 @@
 	const state = reactive<State>({
 		isOpen:false,
 	})
-	function autoConnect(){
-		serial.open()
+	async function autoConnect(){
+		await serial.autoConnect()
+		if(serial.connecting){
+			queue.startListener()
+		}
 	}
 	function close(){
-		// serial.close()
+		serial.close()
+		queue.clear()
 	}
 	function sendHex(){
-		serial.push('01030016000165CE')
+		queue.push('01030016000165CE')
 	}
 	function pushBatch(){
-		serial.pushBatch(['0103001A0001A5CD','0103001C000145CC','0103002E0001E403','0103001E0001E40C','01030020000185C0','0103002200012400','010300240001C401'])
+		queue.pushBatch(['0103001A0001A5CD','0103001C000145CC','0103002E0001E403','0103001E0001E40C','01030020000185C0','0103002200012400','010300240001C401'])
 	}
-	function subscribe(){
-		serial.startListener()
-		// serial.subscribe((res)=>{
-		// 	console.log('subscribe',res)
-		// })
-	}
+
 </script>
 
 <template>
 	<view class="demo">
 		<button class="demo-btn" @click="autoConnect">autoConnect</button>
 		<button class="demo-btn" @click="close">close</button>
-		<button class="demo-btn" @click="subscribe">subscribe</button>
 		<button class="demo-btn" @click="sendHex">sendHex</button>
 		<button class="demo-btn" @click="pushBatch">pushBatch</button>
 	</view>

@@ -14,10 +14,12 @@ export class SerialManager {
 	private testFrame : string
 	private intervalMultiplier : number
 	private tryConnect : boolean // 正在尝试连接的标志
+	/** 命令最小间隔  */
 	public intervalMs : number
-	public connecting : boolean // 已成功连接的标志
+	/**  连接状态 */
+	public connecting : boolean
 
-	constructor(baud : number = 19200, testFrame : string = "01 03 02 BC 00 0A 05 91", intervalMultiplier : number = 4) {
+	constructor(baud : number = 19200, testFrame : string = "010302BC000A0591", intervalMultiplier : number = 4) {
 		this.serialPort = new RS232Serial()
 		this.baud = baud
 		this.testFrame = testFrame
