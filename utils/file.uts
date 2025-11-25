@@ -1,8 +1,7 @@
 import type { AdItem, dFile, GetMediaInfo } from '@/pages/index/types.uts'
-
+import {ossUrl} from "@/config.uts"
 const basePath = uni.env.USER_DATA_PATH
 
-export const ossUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"
 
 export function cdn(url:string){
 	return url.startsWith('http') ?  url : (ossUrl + url)
@@ -26,8 +25,8 @@ function getMediaType(fileName : string) : 'image' | 'video' | 'other' {
 }
 
 /** 读取缓存数据 */
-function loadCache(url:string) : dFile[] {
-	const json = uni.getStorageSync(url)
+function loadCache(key:string) : dFile[] {
+	const json = uni.getStorageSync(key)
 	if (typeof json === 'string' && json.trim() != '') {
 		try {
 			const parsed = JSON.parse<dFile[]>(json)
@@ -92,7 +91,7 @@ function mergeAndSort(list : AdItem[], allFiles : dFile[]) : dFile[] {
 }
 
 /** 下载缺失资源（并发控制 + 重试） */
-async function downloadAD(url:string, list : AdItem[],cacheRef: dFile[], maxConcurrent = 3, attempt = 3) : Promise<dFile[]> {
+async function downloadAD(key:string , url:string, list : AdItem[],cacheRef: dFile[], maxConcurrent = 3, attempt = 3) : Promise<dFile[]> {
 	const successList : dFile[] = []
 	const tasks : AdItem[] = [...list]
 
@@ -106,7 +105,7 @@ async function downloadAD(url:string, list : AdItem[],cacheRef: dFile[], maxConc
 					const file = await downloadFile(url,item)
 					// 及时更新缓存
 					cacheRef.push(file)
-					uni.setStorageSync(url, JSON.stringify(cacheRef))
+					uni.setStorageSync(key, JSON.stringify(cacheRef))
 					
 					successList.push(file)
 					break
@@ -180,14 +179,16 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
  */
 export default async function fileManage(list : AdItem[], type:string = 'ad') : Promise<dFile[]> {
 	const adFileUrl = `${basePath}${type}/`
-	const cached = loadCache(adFileUrl)
+	const AD_FOLDER_NAME = type
+	const CACHE_KEY = `AD_CACHE_DATA_${AD_FOLDER_NAME}`
+	const cached = loadCache(CACHE_KEY)
 	const localFiles = readLocalFileNames(adFileUrl)
 	const neededFileNames = list.map(item => getFileName(item.src))
 	const deletedCount = cleanObsoleteFiles(adFileUrl, neededFileNames, localFiles)
 	let validCache = filterValidCache(cached, localFiles)
 	const cacheNum = validCache.length
 	const toDownload = getDownloadList(list, localFiles)
-	const downloaded = await downloadAD(adFileUrl, toDownload,validCache)
+	const downloaded = await downloadAD(CACHE_KEY,adFileUrl, toDownload,validCache)
 	
 	const merged = mergeAndSort(list, validCache)
 

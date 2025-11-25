@@ -1,0 +1,134 @@
+import { getErrorMsg, showMsg, toNewObject } from "@/utils/tools.uts"
+import { baseUrl } from "@/config.uts"
+
+// 响应数据结构的基础类型
+export type ResponseData<T = any> = {
+	error : number;
+	msg : string;
+	data : T;
+}
+
+// 额外的自定义参数
+export type Custom = {
+	showLoading ?: boolean;
+}
+
+// Loading全局实例
+let LoadingCount :number = 0;
+
+/** 关闭loading */
+function closeLoading() {
+	if (LoadingCount > 0) LoadingCount--;
+	if (LoadingCount === 0) uni.hideLoading();
+}
+
+
+function openLoading() {
+	LoadingCount++;
+	if (LoadingCount === 1) {
+		uni.showLoading({
+			title: '加载中...',
+			mask: true,
+			fail: () => {
+				uni.hideLoading();
+			},
+		});
+	}
+}
+
+export function request<T = any>(config : RequestOptions<T>, custom : Custom = {}) : Promise<ResponseData<T>> {
+	if (custom.showLoading == true) {
+		openLoading()
+	}
+	return new Promise((resolve, reject) => {
+		const url = config.url.startsWith('http') ? config.url : baseUrl + config.url
+		const header = config.header != null ? config.header:{}
+		uni.request<ResponseData<T>>({
+			url: url,
+			method: config.method,
+			data: config.data,
+			timeout: config.timeout ?? 60000,
+			header: UTSJSONObject.assign({},{
+				Accept: 'text/json',
+				'Content-Type': 'application/json;charset=UTF-8',
+				platform: 'App'
+			},header),
+			success: (res : RequestSuccess<ResponseData<T>>) => {
+				if (res.statusCode == 200) {
+					const responseData = res.data as ResponseData<T>;
+
+					if (responseData.error == 0) {
+						resolve(responseData);
+					} else {
+						console.log('error', config.url, res)
+						// showMsg(responseData.msg ?? '业务请求失败');
+						reject(new Error(responseData.msg ?? '业务错误'));
+					}
+				} else {
+					const msg = getErrorMsg(res.statusCode)
+					reject(new Error(`HTTP Error: ${res.statusCode} - ${msg}`));
+				}
+			},
+
+			fail: (err : RequestFail) => {
+				showMsg('网络连接失败，请稍后重试');
+				reject(err);
+			},
+
+			complete: (option : any) => {
+				if (custom.showLoading == true) {
+					closeLoading()
+				}
+			}
+
+		});
+	});
+}
+
+
+/**
+ * GET 请求快捷方法
+ * @param url 请求地址
+ * @param data 请求参数 (自动作为 query string 或 body)
+ * @param config 额外的配置，如 showLoading, timeout, header等。
+ * 注意：传入 config 中的 url/data/method 参数将被忽略。
+ */
+export function get<T = any>(
+	url : string,
+	data : UTSJSONObject = {},
+	custom : Custom = {}
+) : Promise<ResponseData<T>> {
+	console.log('get.data',data)
+	// 运行时 Object.assign 的顺序确保 url/data/method 总是被函数参数覆盖
+	const requestConfig = UTSJSONObject.assign<RequestOptions<T>>({}, {
+		url: url,
+		data: data,
+		method: 'GET'
+	});
+
+	return request<T>(requestConfig as RequestOptions<T>, custom);
+}
+
+/**
+ * POST 请求快捷方法
+ * @param url 请求地址
+ * @param data 请求体数据
+ * @param config 额外的配置，如 showLoading, timeout, header等。
+ * 注意：传入 config 中的 url/data/method 参数将被忽略。
+ */
+export function post<T = any>(
+	url : string,
+	data : UTSJSONObject = {},
+	custom : Custom = {}
+) : Promise<ResponseData<T>> {
+
+	const requestConfig = UTSJSONObject.assign<RequestOptions<T>>({}, {
+		url: url,
+		data: data,
+		method: 'POST'
+	});
+
+	return request<T>(requestConfig as RequestOptions<T>, custom);
+}
+
+export default { request, get, post }

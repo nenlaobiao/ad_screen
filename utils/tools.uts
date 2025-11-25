@@ -61,8 +61,8 @@ export function toNewArray<T>(obj : any) : T[] {
 		const arr = obj as any[]
 		const result : any[] = []
 		for (let i = 0; i < arr.length; i++) {
-			const res = arr[i] as UTSJSONObject
-			result.push(UTSJSONObject.assign<T>(res)!)
+			const item = arr[i] as UTSJSONObject
+			result.push(UTSJSONObject.assign<T>(item)!)
 		}
 		return result as T[]
 	} catch (err) {

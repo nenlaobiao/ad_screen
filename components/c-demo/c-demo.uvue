@@ -3,14 +3,19 @@
 	 * 测试demo
 	 */
 	import { State } from "./types.uts"
+	// #ifdef APP-ANDROID
 	import { SerialManager } from "@/utils/serial/index.uts"
 	import { ModbusQueue } from "@/utils/serial/queue.uts"
+	import type { TempObject } from '@/api/types/tempTypes.uts'
+	import type { ResponseData } from '@/utils/request.uts';
+	// import { getTemp } from "@/api/test.uts"
 	const serial = new SerialManager()
 	const queue = new ModbusQueue(serial,(hex,res,status)=>{
 		console.log('ModbusQueue',hex,res,status)
 		
 		// 使用isOpen来判断连接状态
 	})
+	// #endif
 	const props = defineProps({
 		progress: {
 			type: String,
@@ -20,6 +25,14 @@
 	const state = reactive<State>({
 		isOpen:false,
 	})
+	
+	onLoad( ()=>{
+		// getTemp().then((res:ResponseData<TempObject>)=>{
+		// 	console.log('getTemp',res)
+		// })
+	})
+	
+	// #ifdef APP-ANDROID
 	async function autoConnect(){
 		await serial.autoConnect()
 		if(serial.connecting){
@@ -36,15 +49,18 @@
 	function pushBatch(){
 		queue.pushBatch(['0103001A0001A5CD','0103001C000145CC','0103002E0001E403','0103001E0001E40C','01030020000185C0','0103002200012400','010300240001C401'])
 	}
+	// #endif
 
 </script>
 
 <template>
 	<view class="demo">
+		<!-- #ifdef APP-ANDROID -->
 		<button class="demo-btn" @click="autoConnect">autoConnect</button>
 		<button class="demo-btn" @click="close">close</button>
 		<button class="demo-btn" @click="sendHex">sendHex</button>
 		<button class="demo-btn" @click="pushBatch">pushBatch</button>
+		<!-- #endif -->
 	</view>
 </template>
 

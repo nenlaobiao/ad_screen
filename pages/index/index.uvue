@@ -1,15 +1,16 @@
 <script setup lang="uts">
-	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
-	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import type { CAdChange } from '@/components/c-ad/types.uts'
-	import type { AdItem, State, dFile } from './types.uts'
-	import type { Goods } from '@/api/types/goodsTypes.uts'
-	import type { ResponseData } from "@/api/types.uts"
-	
 	import { getDeviceInfo, getGoodsInfo, getTemplate } from '@/api/index.uts'
 	import { toNewObject, toNewArray } from "@/utils/tools.uts"
-	import fileManage, { ossUrl } from "@/utils/file.uts"
-	
+	import fileManage from "@/utils/file.uts"
+	import { ossUrl } from "@/config.uts"
+
+	import type { CAdChange } from '@/components/c-ad/types.uts'
+	import type { AdItem, State, dFile } from './types.uts'
+	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
+	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
+	import type { Goods } from '@/api/types/goodsTypes.uts'
+
+
 	const adData : AdItem[] = [
 		{
 			id: 0,
@@ -219,7 +220,7 @@
 				<!-- 洗护进度 -->
 				<c-wash-progress v-if="false" />
 
-				<c-demo v-if="true" />
+				<c-demo v-if="false" />
 			</view>
 
 		</view>
