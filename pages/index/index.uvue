@@ -177,6 +177,7 @@
 
 	const seconds = 66
 	onLoad(() => {
+		console.log('uni.getWindowInfo()',uni.getWindowInfo())
 		getTemplateFn()
 		getDeviceInfoFn()
 		fileManage(adData).then((res : dFile[]) => {
@@ -249,22 +250,21 @@
 		// ---------主内容区-----------
 		.content-box {
 			width: 750rpx;
-			height: 326rpx;
+			height: 320rpx;
 			// background: lightskyblue;
 			position: absolute;
 			top: 50%;
 			left: 50%;
-			transform-origin: center;
 			transform: translate(-50%, -50%);
 
 			//  ---------- 左侧广告---------
 			.adBox {
 				width: 377rpx;
-				height: 278rpx;
+				height: 272rpx;
 				padding: 6rpx 4rpx;
 				position: relative;
 				left: 13rpx;
-				top: 21rpx;
+				top: 25rpx;
 
 				.adBox-bg {
 					position: absolute;
@@ -277,16 +277,16 @@
 				.adBox-box {
 					position: relative;
 					width: calc(377rpx - 8rpx);
-					height: calc(278rpx - 12rpx);
+					height: calc(272rpx - 12rpx);
 				}
 			}
 
 			.rightBox {
 				position: absolute;
 				left: 404rpx;
-				top: 27rpx;
+				top: 31rpx;
 				width: 327rpx;
-				height: 267rpx;
+				height: 260rpx;
 
 				// ---------- 商品广告---------
 				.goodsAd {
@@ -294,7 +294,7 @@
 					left: 0;
 					top: 0;
 					width: 327rpx;
-					height: 152rpx;
+					height: 150rpx;
 
 				}
 
@@ -304,7 +304,7 @@
 					left: 0;
 					bottom: 0;
 					width: 327rpx;
-					height: 106rpx;
+					height: 102rpx;
 				}
 			}
 

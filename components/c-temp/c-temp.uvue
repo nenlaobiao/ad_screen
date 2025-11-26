@@ -24,7 +24,7 @@
 	</view>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 	.tempBox {
 		position: fixed;
 		right: 15rpx;
