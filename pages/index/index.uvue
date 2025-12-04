@@ -177,7 +177,6 @@
 
 	const seconds = 66
 	onLoad(() => {
-		console.log('uni.getWindowInfo()',uni.getWindowInfo())
 		getTemplateFn()
 		getDeviceInfoFn()
 		fileManage(adData).then((res : dFile[]) => {
@@ -190,7 +189,7 @@
 	<view class="content">
 		<image class="content-bg" src="/static/BG/BG.png" />
 		<!-- 左上角温度监控 -->
-		<c-temp :water="10" />
+		<c-temp />
 		<view class="content-box">
 
 			<!-- 左侧广告 -->
@@ -259,12 +258,12 @@
 
 			//  ---------- 左侧广告---------
 			.adBox {
-				width: 377rpx;
+				width: 375rpx;
 				height: 272rpx;
 				padding: 6rpx 4rpx;
 				position: relative;
 				left: 13rpx;
-				top: 25rpx;
+				top: 26rpx;
 
 				.adBox-bg {
 					position: absolute;
@@ -276,7 +275,7 @@
 
 				.adBox-box {
 					position: relative;
-					width: calc(377rpx - 8rpx);
+					width: calc(375rpx - 8rpx);
 					height: calc(272rpx - 12rpx);
 				}
 			}
