@@ -3,49 +3,110 @@
 	 * 洗宠机广告
 	 */
 	import type { dFile } from '@/pages/index/types.uts'
-	import type {CAdChange} from "./types.uts"
+	import type {CAdChange,State} from "./types.uts"
 	
 	const props = defineProps({
 	  list: {
 	    type: Array as PropType<dFile[]>,
 	    default: () => []  // 数组/对象必须用函数返回
-	  },
-		touch:{
-			type:Boolean,
-			default:false
-		}
+	  }
 	})
 	const emits = defineEmits<{
 		(e:"change",event:CAdChange) :void
 	}>()
+
+	const state = reactive<State>({
+		current:0,
+		length:0,
+		isPlay:false,
+		timer:null,
+	})
+
+	const adData = computed<dFile | null>(():dFile | null =>{
+		if(state.length == 0) return null
+		return props.list[state.current] as dFile
+	})
 	
-	function swiperChange(e :UniSwiperChangeEvent){
-		let detail = e.detail
-		// console.log('swiperChange',e)
-		emits('change',{
-			id:props.list[detail.current].data.id,
-			index:detail.current,
-			type:detail.source,
-			isPlay:false
+	function getVideoContext(id:number|string):VideoContext|null{
+		return uni.createVideoContext(`video-${id}`)
+	}
+
+	// 清理定时器
+	function clearTimer() {
+		if (state.timer != null) {
+			clearTimeout(state.timer!)
+			state.timer = null
+		}
+	}
+
+	function next(){
+		clearTimer() // 先清除上一个定时器
+		if (state.length == 0) {
+			state.isPlay = false
+			return
+		}
+
+		// 如果不是第一次播放，则切换到下一个
+		if (state.isPlay) {
+			state.current = (state.current + 1) % state.length
+		}
+
+		state.isPlay = true
+		
+		// 确保 adData 更新
+		nextTick(() => {
+			if (adData.value == null) return
+
+			const currentAd = adData.value
+			const adDuration =  10000 // 默认10秒
+
+			emits('change', {
+				id: currentAd.data.id,
+				index: state.current,
+				type: 'auto', // 来源是自动播放
+				isPlay: true
+			})
+
+			if (currentAd.data.type == 'image') {
+				state.timer = setTimeout(() => {
+					next()
+				}, adDuration)
+			}
 		})
 	}
+
+	watch(():dFile[]=>props.list, (newList: dFile[]) => {
+		state.length = newList.length
+		state.current = 0 // 列表变化时，从头开始
+		state.isPlay = false // 重置播放状态
+		clearTimer() // 清除旧的定时器
+
+		nextTick(()=>{
+			next() // 开始新的播放循环
+		})
+	},{
+		immediate:true
+	})
+
+	function videoEnded(){
+		// 视频播放结束，直接播放下一个
+		next()
+	}
+	
+	onUnmounted(() => {
+		clearTimer() // 组件销毁时清除定时器，防止内存泄漏
+	})
 </script>
 
 <template>
 	<view class="ad">
-		<swiper class="ad-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="15000"
-			:vertical="false" :circular="false" :autoplay="true" @change="swiperChange">
-			<swiper-item v-for="ad in list" :key="ad.data.id">
-				<!-- 视频广告 -->
-				<template v-if="ad.data.type == 'video'">
-					<video class="swiper-video" :src="ad.path" object-fit="contain" />
-				</template>
-				<!-- 图片广告 -->
-				<template v-if="ad.data.type == 'image'">
-					<image class="swiper-img" :src="ad.path" mode="aspectFit" />
-				</template>
-			</swiper-item>
-		</swiper>
+		<!-- 视频广告 -->
+		<template v-if="adData != null && state.isPlay">
+			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" />
+			<video class="swiper-video" v-else :id="'video-' + adData!.data.id" :src="adData!.path" object-fit="contain" @ended="videoEnded"
+				:controls="false" :autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false"
+				:enable-progress-gesture="false"/>
+		</template>
 		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
 	</view>
 	<view class="ad-border" />
@@ -55,33 +116,31 @@
 	.ad{
 		background: #B8E3FA;
 		border-radius: 26rpx;
-		border: 9rpx solid #fff;
-		.ad-swiper {
+		border: 9rpx solid #fff; // 直接在 ad 上设置边框
+		box-sizing: border-box; // 确保边框不会增加元素的总宽高
+		height: 100%;
+		width: 100%;
+		.swiper-img {
 			height: 100%;
 			width: 100%;
+		}
 
-			.swiper-img {
-				height: 100%;
-				width: 100%;
-			}
-
-			.swiper-video {
-				height: 100%;
-				width: 100%;
-			}
+		.swiper-video {
+			height: 100%;
+			width: 100%;
 		}
 		.ad-empty{
 			width: 100%;
 			height: 100%;
 		}
 	}
-	.ad-border{
-		position: absolute;
-		z-index: 1;
-		border-radius: 26rpx;
-		border: 9rpx solid #fff;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
+		.ad-border{
+			position: absolute;
+			z-index: 1;
+			border-radius: 26rpx;
+			border: 9rpx solid #fff;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+		}
 </style>
