@@ -4,6 +4,8 @@
 	 */
 	import type { dFile } from '@/pages/index/types.uts'
 	import type {CAdChange,State} from "./types.uts"
+
+	import { getUUID } from '@/utils/tools.uts'
 	
 	const props = defineProps({
 	  list: {
@@ -16,6 +18,7 @@
 	}>()
 
 	const state = reactive<State>({
+		videoId: `video-ad-${getUUID()}`, // 唯一视频ID`
 		current:0,
 		length:0,
 		isPlay:false,
@@ -27,8 +30,8 @@
 		return props.list[state.current] as dFile
 	})
 	
-	function getVideoContext(id:number|string):VideoContext|null{
-		return uni.createVideoContext(`video-${id}`)
+	function getVideoContext():VideoContext|null{
+		return uni.createVideoContext(state.videoId)
 	}
 
 	// 清理定时器
@@ -92,7 +95,18 @@
 		// 视频播放结束，直接播放下一个
 		next()
 	}
-	
+	onPageShow(()=>{
+		if(state.isPlay && adData.value?.data.type == 'video'){
+			let context = getVideoContext()
+			context?.play()
+		}
+	})
+	onPageHide(()=>{
+		if(state.isPlay && adData.value?.data.type == 'video'){
+			let context = getVideoContext()
+			context?.pause()
+		}
+	})
 	onUnmounted(() => {
 		clearTimer() // 组件销毁时清除定时器，防止内存泄漏
 	})
@@ -103,7 +117,7 @@
 		<!-- 视频广告 -->
 		<template v-if="adData != null && state.isPlay">
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" />
-			<video class="swiper-video" v-else :id="'video-' + adData!.data.id" :src="adData!.path" object-fit="contain" @ended="videoEnded"
+			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" @ended="videoEnded"
 				:controls="false" :autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false"
 				:enable-progress-gesture="false"/>
 		</template>

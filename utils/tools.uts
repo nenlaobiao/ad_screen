@@ -84,3 +84,16 @@ export function delay(ms : number) : Promise<void> {
 		setTimeout(() => { resolve() }, ms)
 	})
 }
+
+/**
+ * 生成一个UUID
+ * @returns string
+ */
+export function getUUID() : string {
+	let temp = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+	return temp.replace( /[xy]/g , (str: string, i: number, d: string):string =>{
+		const r = Math.random() * 16 | 0;
+		const v = str == 'x' ? r : (r & 0x3 | 0x8);
+		return v.toString(16);
+	});
+}

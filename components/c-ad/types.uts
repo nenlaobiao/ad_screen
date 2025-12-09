@@ -1,10 +1,11 @@
 export type AdFit = "contain" | "fill" | "cover"
 
 export type State = {
-	current:number,
-	length:number,
-	isPlay:boolean,
-	timer:null|number,
+	videoId:string;
+	current:number;
+	length:number;
+	isPlay:boolean;
+	timer:null|number;
 }
 export type CAdChange = {
 	id: number;
