@@ -5,11 +5,11 @@
 	const props = defineProps({
 		cage: {
 			type: [Number, String],
-			default: 0
+			default: 10
 		},
 		water: {
 			type: [Number, String],
-			default: 0
+			default: 20
 		}
 	})
 </script>
@@ -27,8 +27,8 @@
 <style lang="scss">
 	.tempBox {
 		position: fixed;
-		right: 15rpx;
-		top: 9rpx;
+		right: 16rpx;
+		top: 7rpx;
 		z-index: 25;
 		display: flex;
 		flex-direction: row;
@@ -56,6 +56,7 @@
 
 		.tempBox-item-text {
 			flex:1;
+			margin-top: 1rpx;
 			font-weight: bold;
 			color: #2E87B5;
 			font-size: 7rpx;
