@@ -4,7 +4,7 @@
 	 */
 	import type { dFile } from '@/pages/index/types.uts'
 	import type { CAdChange} from "./types.uts"
-	import { QRcodeTool , mpQrUrl} from "@/config.uts"
+	import { QRcodeTool , mpGoodsQrUrl} from "@/config.uts"
 	
 	const props = defineProps({
 	  list: {
@@ -25,7 +25,7 @@
 	}>()
 	
 	function goodsQRcode (id:number|string){
-		return QRcodeTool + encodeURIComponent(`${mpQrUrl}/dpGoods/?id=${id}` )
+		return QRcodeTool + encodeURIComponent(`${mpGoodsQrUrl}?id=${id}` )
 	}
 	
 	function swiperChange(e :UniSwiperChangeEvent){

@@ -3,7 +3,7 @@
 	 * 套餐支付页
 	 */
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import {QRcodeTool,mpQrUrl } from "@/config.uts"
+	import {QRcodeTool,mpWashQrUrl } from "@/config.uts"
 	const props = defineProps({
 		data: {
 			type: Object as DeviceInfo,
@@ -26,7 +26,7 @@
 		emits('back',false)
 	}
 	const MPQRcode = computed(() => {
-		return QRcodeTool + encodeURIComponent(mpQrUrl + '/static/?machineCode=' + props.machineCode + '&packageType=' + (
+		return QRcodeTool + encodeURIComponent(mpWashQrUrl + '?machineCode=' + props.machineCode + '&packageType=' + (
 			props.data.batch_type))
 	})
 </script>

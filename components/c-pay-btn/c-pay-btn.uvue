@@ -3,7 +3,6 @@
 	 * 支付按钮组件
 	 */
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import { QRcodeTool, mpQrUrl } from "@/config.uts"
 	const props = defineProps({
 		list: {
 			type: Array as PropType<DeviceInfo[]>,
@@ -13,11 +12,7 @@
 	const emits = defineEmits<{
 		(e : "onTap", event : DeviceInfo) : void
 	}>()
-
-	function goodsQRcode(id : number | string) {
-		return QRcodeTool + encodeURIComponent(`${mpQrUrl}/dpGoods/?id=${id}`)
-	}
-
+	
 	function onTapFn(e : DeviceInfo) {
 		emits('onTap', e)
 	}

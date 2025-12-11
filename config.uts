@@ -1,5 +1,18 @@
 
+/** 接口BaseUrl */
 export const baseUrl : string = "https://cutepet.liuliangbenben.com"
-export const mpQrUrl : string = "https://cutepet.liuliangbenben.com"
+
+/** 小程序洗护QR地址 */
+export const mpWashQrUrl : string = "https://cutepet.liuliangbenben.com/static/"
+
+/** 小程序商品QR地址 */
+export const mpGoodsQrUrl : string = "https://cutepet.liuliangbenben.com/dpGoods/"
+
+/** QR合成地址 */
 export const QRcodeTool : string = "https://pageandy.liuliangbenben.top/qrcode/build?text="
+
+/** 惊禧生活OSS地址 */
 export const ossUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"
+
+/** 流量犇犇OSS地址 */
+export const llbbOssUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"

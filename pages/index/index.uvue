@@ -1,8 +1,8 @@
 <script setup lang="uts">
 	import { getDeviceInfo, getGoodsInfo, getTemplate } from '@/api/index.uts'
-	import { toNewObject, toNewArray } from "@/utils/tools.uts"
+	import { toNewObject, toNewArray} from "@/utils/tools.uts"
 	import fileManage from "@/utils/file.uts"
-	import { ossUrl } from "@/config.uts"
+	import { ossUrl, llbbOssUrl} from "@/config.uts"
 
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
@@ -118,7 +118,7 @@
 						let goods = toNewObject<Goods>(goodsData[i])
 						let adItem = {
 							id: goods.id,
-							src: `http://liuliangbenben.oss-cn-hangzhou.aliyuncs.com${goods.image}`,
+							src: `${llbbOssUrl}${goods.image}`,
 							type: 'image',
 							title: goods.title,
 						} as AdItem
