@@ -3,7 +3,7 @@
 	 * 洗宠机广告
 	 */
 	import type { dFile } from '@/pages/index/types.uts'
-	import type {CAdChange,State} from "./types.uts"
+	import type { CAdChange, State } from "./types.uts"
 
 	import { getUUID } from '@/utils/tools.uts'
 	
@@ -66,7 +66,7 @@
 			emits('change', {
 				id: currentAd.data.id,
 				index: state.current,
-				type: 'auto', // 来源是自动播放
+				type: 'autoplay', // 来源是自动播放
 				isPlay: true
 			})
 
@@ -119,7 +119,7 @@
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" />
 			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" @ended="videoEnded"
 				:controls="false" :autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false"
-				:enable-progress-gesture="false"/>
+				:enable-progress-gesture="false" />
 		</template>
 		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
 	</view>
