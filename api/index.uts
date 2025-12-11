@@ -4,10 +4,10 @@ import type { Goods } from '@/api/types/goodsTypes.uts'
 import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 
 /** 获取模板信息 */
-export const getTemplate = () : Promise<ResponseData<TempObject>> => get<TempObject>('/shop/api/init')
+export const getTemplate = (params : UTSJSONObject) : Promise<ResponseData<TempObject>> => get<TempObject>('https://api-prod-shop.jingxishenghuo1688.com/shop/api/init',params)
 
 /** 获取商品信息 */
-export const getGoodsInfo = (params : UTSJSONObject) : Promise<ResponseData<Goods>> => get<Goods>('/shop/api/goods/goods/ids', params)
+export const getGoodsInfo = (params : UTSJSONObject) : Promise<ResponseData<Goods>> => get<Goods>('https://api-prod-shop.jingxishenghuo1688.com/shop/api/goods/goods/ids', params)
 
 /** 获取设备信息 */
 export const getDeviceInfo = () : Promise<ResponseData<DeviceInfo[]>> => get<DeviceInfo[]>('/shop/api/pet/order/deviceInfo')

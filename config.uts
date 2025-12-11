@@ -2,11 +2,14 @@
 /** 接口BaseUrl */
 export const baseUrl : string = "https://cutepet.liuliangbenben.com"
 
+/** 1688图片加载前缀 */
+export const aliOssUrl : string = "https://api-prod-shop.jingxishenghuo1688.com/index/getAliShopImage?image="
+
 /** 小程序洗护QR地址 */
 export const mpWashQrUrl : string = "https://cutepet.liuliangbenben.com/static/"
 
 /** 小程序商品QR地址 */
-export const mpGoodsQrUrl : string = "https://cutepet.liuliangbenben.com/dpGoods/"
+export const mpGoodsQrUrl : string = "https://cutepet.liuliangbenben.com/openindex/"
 
 /** QR合成地址 */
 export const QRcodeTool : string = "https://pageandy.liuliangbenben.top/qrcode/build?text="

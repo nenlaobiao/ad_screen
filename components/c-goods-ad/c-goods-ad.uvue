@@ -26,7 +26,7 @@
 	}>()
 
 	function goodsQRcode(id : number | string) {
-		return getQrUrl(mpGoodsQrUrl, { id })
+		return getQrUrl(mpGoodsQrUrl, `?spm=0.50.${id}.1.2`)
 	}
 
 	function swiperChange(e : UniSwiperChangeEvent) {

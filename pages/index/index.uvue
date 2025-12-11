@@ -2,7 +2,7 @@
 	import { getDeviceInfo, getGoodsInfo, getTemplate } from '@/api/index.uts'
 	import { toNewObject, toNewArray} from "@/utils/tools.uts"
 	import fileManage from "@/utils/file.uts"
-	import { ossUrl, llbbOssUrl} from "@/config.uts"
+	import { ossUrl, llbbOssUrl ,aliOssUrl} from "@/config.uts"
 
 	import type { CAdChange } from '@/components/c-ad/types.uts'
 	import type { AdItem, State, dFile } from './types.uts'
@@ -100,6 +100,9 @@
 	function adChange(e : any) {
 		console.log('adChange', e as CAdChange)
 	}
+	function goodsChange(e : any) {
+		// console.log('goodsChange', e as CAdChange)
+	}
 	function payTap(e : DeviceInfo) {
 		state.petWash = e
 		state.showPay = true
@@ -118,7 +121,7 @@
 						let goods = toNewObject<Goods>(goodsData[i])
 						let adItem = {
 							id: goods.id,
-							src: `${llbbOssUrl}${goods.image}`,
+							src: `https://api-prod-shop.jingxishenghuo1688.com/index/getAliShopImage?image=${goods.image}`,
 							type: 'image',
 							title: goods.title,
 						} as AdItem
@@ -150,7 +153,9 @@
 	// 获取装修模板信息
 	async function getTemplateFn() {
 		try {
-			let res = await getTemplate()
+			let res = await getTemplate({
+				templateId:117
+			})
 			if (res.error == 0) {
 				let resData = toNewObject<TempObject>(res.data)
 				let templateData = resData.template.home?.data
@@ -161,7 +166,7 @@
 						// 获取组件内商品数据
 						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
 						let ids = goodsClassData.templateList[0].goodsIds
-						let adIds = ids.slice(0, 4).map(n => `${n}`).join(',')
+						let adIds = ids.slice(0, 6).map(n => `${n}`).join(',')
 						console.log('adIds', adIds)
 						getGoodsInfoFn(adIds)
 					}
@@ -180,7 +185,6 @@
 		getTemplateFn()
 		getDeviceInfoFn()
 		fileManage(adData).then((res : dFile[]) => {
-			console.log('res',res)
 			state.adList = res
 		})
 	})
@@ -204,7 +208,7 @@
 			<view class="rightBox">
 				<!-- 右上商品广告区域 -->
 				<view class="goodsAd" v-show="true">
-					<c-goods-ad :list="state.goodsList" @change="adChange" />
+					<c-goods-ad :list="state.goodsList" @change="goodsChange" />
 				</view>
 
 				<!-- 右下付款按钮 -->

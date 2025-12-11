@@ -48,7 +48,6 @@ export function toNewObject<T>(obj : any) : T {
 	try {
 		return UTSJSONObject.assign<T>(obj as UTSJSONObject)!;
 	} catch (err) {
-		console.log('toNewObject --- error', err)
 		let errData = JSON.parse<T>(JSON.stringify(obj))!
 		return errData
 	}

@@ -41,19 +41,8 @@
 			state.timer = null
 		}
 	}
-	
-	// 先给 next 赋值一个空函数，避免在 playImage 中找不到
-	let next : () => void = () => {}
 
-	// 使用函数表达式来解决 next 和 playImage 之间的循环引用问题
-	const playImage = (duration: number) => {
-		clearTimer()
-		state.timer = setTimeout(() => {
-			next()
-		}, duration)
-	}
-	
-	next = () => {
+	function next () {
 		clearTimer() // 先清除上一个定时器
 		if (state.length == 0) {
 			state.isPlay = false
@@ -72,19 +61,21 @@
 			state.isPlay = false
 			return
 		}
-	
 		emits('change', {
 			id: currentAd.data.id,
 			index: state.current,
 			type: 'autoplay', // 来源是自动播放
 			isPlay: true
 		})
-	
-		if (currentAd.data.type == 'image') {
-			playImage(10000) // 图片播放10秒
-		}
 	}
-
+	
+	function imageLoad(){
+		clearTimer()
+		state.timer = setTimeout(() => {
+			next()
+		}, 10000)
+	}
+	
 	watch(():dFile[]=>props.list, (newList: dFile[]) => {
 		state.length = newList.length
 		state.current = 0 // 列表变化时，从头开始
@@ -123,7 +114,7 @@
 	<view class="ad">
 		<!-- 视频广告 -->
 		<template v-if="adData != null && state.isPlay">
-			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" />
+			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" @load="imageLoad"/>
 			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" @ended="videoEnded"
 				:controls="false" :autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false"
 				:enable-progress-gesture="false" />
