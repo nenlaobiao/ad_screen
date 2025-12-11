@@ -3,47 +3,48 @@
 	 * 商品广告
 	 */
 	import type { dFile } from '@/pages/index/types.uts'
-	import type { CAdChange} from "./types.uts"
-	import { QRcodeTool , mpGoodsQrUrl} from "@/config.uts"
-	
+	import type { CAdChange } from "./types.uts"
+	import { getQrUrl } from "@/utils/tools.uts"
+	import { mpGoodsQrUrl } from "@/config.uts"
+
 	const props = defineProps({
-	  list: {
-	    type: Array as PropType<dFile[]>,
-	    default: () => []  // 数组/对象必须用函数返回
-	  },
-		touch:{
-			type:Boolean,
-			default:true
+		list: {
+			type: Array as PropType<dFile[]>,
+			default: () => []  // 数组/对象必须用函数返回
 		},
-		interval:{
-			type:Number,
-			default:6000
+		touch: {
+			type: Boolean,
+			default: true
+		},
+		interval: {
+			type: Number,
+			default: 6000
 		}
 	})
 	const emits = defineEmits<{
-		(e:"change",event:CAdChange) :void
+		(e : "change", event : CAdChange) : void
 	}>()
-	
-	function goodsQRcode (id:number|string){
-		return QRcodeTool + encodeURIComponent(`${mpGoodsQrUrl}?id=${id}` )
+
+	function goodsQRcode(id : number | string) {
+		return getQrUrl(mpGoodsQrUrl, { id })
 	}
-	
-	function swiperChange(e :UniSwiperChangeEvent){
+
+	function swiperChange(e : UniSwiperChangeEvent) {
 		let detail = e.detail
 		// console.log('swiperChange',e)
-		emits('change',{
-			id:props.list[detail.current].data.id,
-			index:detail.current,
-			type:detail.source,
-			isPlay:false
+		emits('change', {
+			id: props.list[detail.current].data.id,
+			index: detail.current,
+			type: detail.source,
+			isPlay: false
 		})
 	}
 </script>
 
 <template>
 	<view class="goodsAdBox">
-		<swiper class="goods-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="interval"
-			:vertical="false":circular="true" :autoplay="true" @change="swiperChange">
+		<swiper class="goods-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="interval" :vertical="false"
+			:circular="true" :autoplay="true" @change="swiperChange">
 			<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
 				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
 				<view class="goods-info">
@@ -65,15 +66,16 @@
 </template>
 
 <style lang="scss">
-	.goodsAdBox{
+	.goodsAdBox {
 		width: 100%;
 		height: 100%;
 		z-index: 11;
 		background-color: #84CAEB;
 		border-radius: 18rpx;
-		border:6rpx solid #fff;
+		border: 6rpx solid #fff;
 	}
-	.goodsAd-border{
+
+	.goodsAd-border {
 		position: absolute;
 		z-index: 12;
 		border-radius: 18rpx;
@@ -82,60 +84,72 @@
 		height: 100%;
 		pointer-events: none;
 	}
-	.goodsAd-empty{
+
+	.goodsAd-empty {
 		height: 100%;
 		flex-direction: row;
 		align-items: center;
-		.empty-qr{
+
+		.empty-qr {
 			width: 100rpx;
 			height: 100rpx;
 			margin-left: 20rpx;
 			margin-right: 14rpx;
 			border-radius: 10rpx;
 		}
-		.empty-textBox{
-			flex:1;
-			.textBox-title{
+
+		.empty-textBox {
+			flex: 1;
+
+			.textBox-title {
 				font-size: 18rpx;
 				font-weight: bold;
-				color:#fff;
+				color: #fff;
 			}
-			.textBox-tips{
+
+			.textBox-tips {
 				margin-top: 4rpx;
 				font-size: 14rpx;
 				text-overflow: ellipsis;
 				lines: 3;
-				color:#fff;
+				color: #fff;
 			}
 		}
 	}
+
 	.goods-swiper {
 		width: 100%;
 		height: 100%;
-		.goods-swiper-item{
+
+		.goods-swiper-item {
 			flex-direction: row;
+
 			.swiper-img {
 				width: 188rpx;
 				height: 100%;
 			}
-			.goods-info{
-				flex:1;
+
+			.goods-info {
+				flex: 1;
 				padding: 0 6rpx;
 				justify-content: flex-end;
 				align-items: center;
-				.goods-info-title{
+
+				.goods-info-title {
 					margin-bottom: 4rpx;
 					font-size: 10rpx;
-					color:#fff;
+					color: #fff;
 					text-overflow: ellipsis;
 					lines: 3;
 				}
-				.goods-info-tips{
+
+				.goods-info-tips {
 					margin-bottom: 4rpx;
-					font-size:8rpx;
-					color:#fff;
+					font-size: 8rpx;
+					color: #fff;
 				}
-				.mpQr{
+
+				.mpQr {
 					margin-bottom: 8rpx;
 					height: 73rpx;
 					width: 73rpx;

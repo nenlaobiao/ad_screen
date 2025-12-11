@@ -1,4 +1,4 @@
-
+import { QRcodeTool } from "@/config.uts"
 /**
  * 自动转换任意值为布尔值
  * @param value 任意输入值
@@ -86,12 +86,33 @@ export function delay(ms : number) : Promise<void> {
 }
 
 /**
+ * 获取小程序QR链接
+ */
+export function getQrUrl(mpQrUrl : string, params : UTSJSONObject | string) : string {
+	if (typeof params == 'string') {
+		return QRcodeTool + encodeURIComponent(mpQrUrl + params) as string
+	} else if (typeof params == 'object') {
+		let str = '?'
+		let keys = UTSJSONObject.keys(params)
+		for (let i = 0; i < keys.length; i++) {
+			let key = keys[i]
+			str += `${key}=${params[key]}`
+			if (i < keys.length - 1) str += '&'
+		}
+		return QRcodeTool + encodeURIComponent(mpQrUrl + str) as string
+	} else {
+		console.log('使用方法错误')
+		return mpQrUrl
+	}
+}
+
+/**
  * 生成一个UUID
  * @returns string
  */
 export function getUUID() : string {
 	let temp = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-	return temp.replace( /[xy]/g , (str: string, i: number, d: string):string =>{
+	return temp.replace(/[xy]/g, (str : string, i : number, d : string) : string => {
 		const r = Math.random() * 16 | 0;
 		const v = str == 'x' ? r : (r & 0x3 | 0x8);
 		return v.toString(16);

@@ -41,41 +41,48 @@
 			state.timer = null
 		}
 	}
+	
+	// 先给 next 赋值一个空函数，避免在 playImage 中找不到
+	let next : () => void = () => {}
 
-	function next(){
+	// 使用函数表达式来解决 next 和 playImage 之间的循环引用问题
+	const playImage = (duration: number) => {
+		clearTimer()
+		state.timer = setTimeout(() => {
+			next()
+		}, duration)
+	}
+	
+	next = () => {
 		clearTimer() // 先清除上一个定时器
 		if (state.length == 0) {
 			state.isPlay = false
 			return
 		}
-
+	
 		// 如果不是第一次播放，则切换到下一个
 		if (state.isPlay) {
 			state.current = (state.current + 1) % state.length
 		}
-
+	
 		state.isPlay = true
 		
-		// 确保 adData 更新
-		nextTick(() => {
-			if (adData.value == null) return
-
-			const currentAd = adData.value
-			const adDuration =  10000 // 默认10秒
-
-			emits('change', {
-				id: currentAd.data.id,
-				index: state.current,
-				type: 'autoplay', // 来源是自动播放
-				isPlay: true
-			})
-
-			if (currentAd.data.type == 'image') {
-				state.timer = setTimeout(() => {
-					next()
-				}, adDuration)
-			}
+		const currentAd = adData.value
+		if (currentAd == null) {
+			state.isPlay = false
+			return
+		}
+	
+		emits('change', {
+			id: currentAd.data.id,
+			index: state.current,
+			type: 'autoplay', // 来源是自动播放
+			isPlay: true
 		})
+	
+		if (currentAd.data.type == 'image') {
+			playImage(10000) // 图片播放10秒
+		}
 	}
 
 	watch(():dFile[]=>props.list, (newList: dFile[]) => {
