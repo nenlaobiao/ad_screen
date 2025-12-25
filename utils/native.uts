@@ -1,93 +1,173 @@
 // #ifdef APP-ANDROID
 import Build from 'android.os.Build';
 import WindowManager from 'android.view.WindowManager';
-import View from 'android.view.View';
+import File from 'java.io.File';
 import WindowInsets from 'android.view.WindowInsets';
 import WindowInsetsController from 'android.view.WindowInsetsController';
 import Color from 'android.graphics.Color';
 import Runtime from 'java.lang.Runtime';
 import BufferedReader from 'java.io.BufferedReader';
 import InputStreamReader from 'java.io.InputStreamReader';
+import DataOutputStream from 'java.io.DataOutputStream';
 // #endif
 
 /**
  * 跨版本沉浸模式
- * Android 8+ 到 Android 13+
  */
 export function setFullscreen(enable: boolean = true) {
     // #ifdef APP-ANDROID
-    let activity = UTSAndroid.getUniActivity()!;
-    let window = activity.getWindow();
+    const activity = UTSAndroid.getUniActivity();
+    if (activity == null) return;
+    const window = activity.getWindow();
 
     if (Build.VERSION.SDK_INT >= 30) {
-        // Android 11+
-        let controller = window.getInsetsController();
+        // Android 11+ 使用 WindowInsetsController
+        const controller = window.getInsetsController();
         if (controller != null) {
             if (enable) {
-                controller.hide(
-                    WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars()
-                );
-                controller.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                );
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
                 window.setDecorFitsSystemWindows(false);
                 window.setNavigationBarColor(Color.TRANSPARENT);
+                window.setStatusBarColor(Color.TRANSPARENT);
             } else {
-                controller.show(
-                    WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars()
-                );
+                controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_DEFAULT);
                 window.setDecorFitsSystemWindows(true);
             }
         }
-    } else if (Build.VERSION.SDK_INT >= 19) {
-        // Android 4.4 ~ Android 10，用老方法
-        let decorView = window.getDecorView();
+    } else {
+        // Android 10 及以下
+        const decorView = window.getDecorView();
         if (enable) {
-            // 沉浸模式
-            // @ts-ignore
-            decorView.setSystemUiVisibility(
-                // @ts-ignore
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_FULLSCREEN
-            );
+            // 使用直接数值位运算 0x00001006 (SYSTEM_UI_FLAG_IMMERSIVE_STICKY | HIDE_NAVIGATION | FULLSCREEN)
+            // 这样写可以完美绕过 UTS 对 Deprecated 字段的拦截
+            const flags = 2 | 4 | 256 | 512 | 1024 | 2048 | 4096; 
+            decorView.setSystemUiVisibility(flags as Int);
             window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         } else {
-            // 恢复
-            // @ts-ignore
-            decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+            decorView.setSystemUiVisibility(0);
             window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         }
     }
     // #endif
 }
-// utils/rootShell.uts
+
+/**
+ * 执行 Root 命令
+ * @param cmd 命令字符串
+ */
 export function execRootShell(cmd: string): Promise<string> {
-  return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
+        // #ifdef APP-ANDROID
+        try {
+            // 使用字符串数组方式执行，防止空格参数失效
+            const process = Runtime.getRuntime().exec("su");
+            const os = new DataOutputStream(process.getOutputStream());
+            
+            // 写入命令并换行
+            os.writeBytes(cmd + "\n");
+            os.writeBytes("exit\n");
+            os.flush();
+
+            const reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            let output = "";
+            
+            // UTS 循环安全写法
+            while (true) {
+                const line = reader.readLine();
+                if (line == null) break;
+                output += line + "\n";
+            }
+
+            process.waitFor();
+            resolve(output.trim());
+        } catch (e) {
+            reject(`Root 执行失败: ${e}`);
+        }
+        // #endif
+
+        // #ifndef APP-ANDROID
+        reject("非 Android 环境不支持 Root 操作");
+        // #endif
+    });
+}
+
+/**
+ * 静默安装 APK (需 Root)
+ * @param apkPath APK 文件在手机里的绝对路径
+ */
+export async function silentInstall(apkPath: string): Promise<boolean> {
     try {
-      // #ifdef APP-ANDROID
-      const process = Runtime.getRuntime()!.exec("su -c '" + cmd + "'");
-      const inputStream = process.getInputStream();
-      const reader = new BufferedReader(new InputStreamReader(inputStream));
-      let output = "";
-      let line: string | null = reader.readLine();
-
-      // 读取命令输出
-      while (line != null) {
-        output += line + "\n";
-        line = reader.readLine();
-      }
-
-      // 等待命令结束
-      process.waitFor();
-      resolve(output.trim());
-      // #endif
-
-      // #ifdef H5 || APP-PLUS
-      reject("仅支持 Android 设备并且已 Root");
-      // #endif
+        // pm install -r 强制覆盖安装
+        const result = await execRootShell(`pm install -r ${apkPath}`);
+        return result.toLowerCase().includes("success");
     } catch (e) {
-      reject(e);
+        console.error("静默安装失败:", e);
+        return false;
     }
-  });
+}
+
+/**
+ * 静默重启设备 (需 Root)
+ */
+export async function rebootDevice() {
+    return await execRootShell("reboot");
+}
+
+
+/**
+ * 检测设备是否具有 Root 权限
+ * @returns boolean
+ */
+export function isDeviceRooted() : boolean {
+	// #ifdef APP-ANDROID
+	// 方法 1: 检查常见的 su 文件路径
+	const paths = [
+		"/system/bin/su",
+		"/system/xbin/su",
+		"/sbin/su",
+		"/system/sd/xbin/su",
+		"/unused/bin/su",
+		"/data/local/xbin/su",
+		"/data/local/bin/su",
+		"/system/usr/we-need-app/su",
+		"/cache/su",
+		"/bin/su",
+		"/sbin/su"
+	];
+
+	for (let path in paths) {
+		const file = new File(path);
+		if (file.exists()) return true;
+	}
+
+	// 方法 2: 尝试执行 check-in (有些设备做了隐藏，但执行命令骗不了人)
+	return checkRootMethod2();
+	// #endif
+	
+	return false;
+}
+
+/**
+ * 尝试通过执行 su 命令来检测
+ */
+function checkRootMethod2() : boolean {
+	let process : Process | null = null;
+	try {
+		// 执行 id 命令，如果返回包含 uid=0 则说明是 root
+		process = Runtime.getRuntime().exec("su -c id");
+		const reader = new BufferedReader(new InputStreamReader(process!.getInputStream()));
+		const output = reader.readLine();
+		if (output != null && output.toLowerCase().includes("uid=0")) {
+			return true;
+		}
+	} catch (e) {
+		// 执行失败说明没有 su 环境
+	} finally {
+		if (process != null) {
+			process.destroy();
+		}
+	}
+	return false;
 }

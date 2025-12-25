@@ -1,0 +1,25 @@
+/**
+ * 引导 App 启动的逻辑
+ * 广告机项目通常需要进入后自动全屏
+ */
+export function launchAppOnBoot() {
+    // #ifdef APP-ANDROID
+    const context = UTSAndroid.getAppContext();
+    if (context != null) {
+        const packageManager = context.getPackageManager();
+        const intent = packageManager.getLaunchIntentForPackage(context.getPackageName());
+        
+        if (intent != null) {
+            // 设置启动标志：在新任务栈中打开
+					try{
+						intent.addFlags(268435456); // Intent.FLAG_ACTIVITY_NEW_TASK
+						context.startActivity(intent);
+						console.log("App 已触发开机自启动");
+					}catch(e){
+						console.log("开机自启动失败",e);
+					}
+
+        }
+    }
+    // #endif
+}

@@ -1,9 +1,13 @@
 <script lang="uts">
-	import {setFullscreen } from "@/utils/native.uts"
+	import { launchAppOnBoot } from '@/utils/boot.uts' // 假设你放在这个路径
+	import {setFullscreen ,isDeviceRooted} from "@/utils/native.uts"
 	let firstBackTime = 0
 	export default {
 		onLaunch: function () {
 			console.log('App Launch')
+			launchAppOnBoot()
+			const isRoot = isDeviceRooted()
+			console.log(isRoot ? '设备已root':'root未开启')
 		},
 		onShow: function () {
 			console.log('App Show')

@@ -3,16 +3,17 @@ import { toNewObject } from "@/utils/tools.uts"
 type OpenOptions = {
 	port : string;
 	baudRate : number;
-	dataBits: number;
-	stopBits: number;
-	parity: number;
-	flowCon: number;
+	dataBits : number;
+	stopBits : number;
+	parity : number;
+	flowCon : number;
 }
 /**
  * Mock RS232Serial 插件类
  * 用于在没有硬件的情况下测试 SerialManager 逻辑
  */
 export class RS232Serial {
+	
 	private isOpened : boolean = false
 	private currentPort : string | null = null
 	private callback : ((data : string) => void) | null = null
@@ -22,17 +23,16 @@ export class RS232Serial {
 		return ["/dev/ttyS0"; "/dev/ttyS1", "/dev/ttyAMA0"]
 	}
 
-
 	/** 模拟打开串口 */
 	public open(options : any) : void {
 		let option = toNewObject<OpenOptions>(options)
 		if (option.port == "/dev/ttyAMA0") {
 			// 模拟一个永远打不开的端口
-			throw new Error("Permission denied")
+			console.log(` [ serialMock ] --> 访问了坏端口${option.port}`)
 		}
 		this.isOpened = true
 		this.currentPort = option.port
-		console.log(`[Mock] 串口已打开: ${this.currentPort}, 波特率: ${option.baudRate}`)
+		console.log(` [ serialMock ] --> 串口已打开: ${this.currentPort}, 波特率: ${option.baudRate}`)
 	}
 
 	/** 模拟发送数据 */
@@ -40,17 +40,18 @@ export class RS232Serial {
 		if (!this.isOpened) {
 			throw new Error("Serial port not opened")
 		}
-		console.log(`[Mock] 发送数据到 ${this.currentPort}: ${hex}`)
+		console.log(` [ serialMock ] --> 发送数据到 ${this.currentPort}: ${hex}`)
 
 		// 模拟 Modbus 响应逻辑
 		// 如果发送的是 SerialManager 默认的测试帧，则异步回传一个成功的响应
 		if (hex === "010302BC000A0591") {
 			this.simulateModbusResponse()
-		}else{
+		} else {
 			this.sendMessage(hex)
 		}
 	}
-	private sendMessage(msg:string){
+	
+	private sendMessage(msg : string) {
 		setTimeout(() => {
 			if (this.callback != null) {
 				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
@@ -59,6 +60,7 @@ export class RS232Serial {
 			}
 		}, 10)
 	}
+	
 	/** 模拟 Modbus RTU 设备返回数据 (带 CRC 校验) */
 	private simulateModbusResponse() {
 		// 模拟 150ms 后返回数据（模拟硬件延迟）
@@ -66,13 +68,13 @@ export class RS232Serial {
 			if (this.callback != null) {
 				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
 				// 假设响应 01 03 04 ...
-				const mockData = "0103140000000000000000000000000000000000000000A367" 
-				console.log(`[Mock] 收到来自 ${this.currentPort} 的响应: ${mockData}`)
+				const mockData = "0103140000000000000000000000000000000000000000A367"
+				console.log(` [ serialMock ] --> 收到来自 ${this.currentPort} 的响应: ${mockData}`)
 				this.callback(mockData)
 			}
 		}, 150)
 	}
-
+	
 	/** 模拟数据订阅 */
 	public subscribe(type : string, cb : (data : string) => void) : void {
 		if (type === 'HEX') {
@@ -82,7 +84,7 @@ export class RS232Serial {
 
 	/** 模拟关闭串口 */
 	public close() : void {
-		console.log(`[Mock] 串口已关闭: ${this.currentPort}`)
+		console.log(` [ serialMock ] --> 串口已关闭: ${this.currentPort}`)
 		this.isOpened = false
 		this.currentPort = null
 		this.callback = null
