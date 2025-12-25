@@ -98,7 +98,7 @@
 		return ossUrl + url
 	}
 	function adChange(e : any) {
-		console.log('adChange', e as CAdChange)
+		// console.log('adChange', e as CAdChange)
 	}
 	function goodsChange(e : any) {
 		// console.log('goodsChange', e as CAdChange)
@@ -225,12 +225,13 @@
 				<!-- 洗护进度 -->
 				<c-wash-progress v-if="false" />
 
-				<c-demo v-if="true" />
+				<c-demo v-if="false" />
 			</view>
 
 		</view>
 		<!-- 底部状态栏 -->
 		<c-statusbar />
+		
 	</view>
 </template>
 

@@ -93,6 +93,11 @@
 		// 视频播放结束，直接播放下一个
 		next()
 	}
+	function videoError(data:dFile,e:UniVideoErrorEvent){
+		console.log('videoError',e)
+		console.log('videodata',data)
+		next()
+	}
 	onPageShow(()=>{
 		if(state.isPlay && adData.value?.data.type == 'video'){
 			let context = getVideoContext()
@@ -108,14 +113,14 @@
 	onUnmounted(() => {
 		clearTimer() // 组件销毁时清除定时器，防止内存泄漏
 	})
-</script>
+</script> 
 
 <template>
 	<view class="ad">
 		<!-- 视频广告 -->
 		<template v-if="adData != null && state.isPlay">
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" @load="imageLoad"/>
-			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" @ended="videoEnded"
+			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" @ended="videoEnded" @error="videoError(adData as dFile,$event as UniVideoErrorEvent)"
 				:controls="false" :autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false"
 				:enable-progress-gesture="false" />
 		</template>

@@ -42,8 +42,8 @@ export function setFullscreen(enable: boolean = true) {
         if (enable) {
             // 使用直接数值位运算 0x00001006 (SYSTEM_UI_FLAG_IMMERSIVE_STICKY | HIDE_NAVIGATION | FULLSCREEN)
             // 这样写可以完美绕过 UTS 对 Deprecated 字段的拦截
-            const flags = 2 | 4 | 256 | 512 | 1024 | 2048 | 4096; 
-            decorView.setSystemUiVisibility(flags as Int);
+            const flags:Int = 2 | 4 | 256 | 512 | 1024 | 2048 | 4096; 
+            decorView.setSystemUiVisibility(flags);
             window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         } else {
             decorView.setSystemUiVisibility(0);

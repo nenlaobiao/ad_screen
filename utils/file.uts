@@ -173,6 +173,56 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
 }
 
 /**
+ * 修复/重新下载指定的损坏文件
+ * @param brokenFiles 损坏的 dFile 数组
+ */
+export async function repairFiles(brokenFiles : dFile[]) : Promise<dFile[]> {
+	if (brokenFiles.length === 0) return []
+
+	// 1. 从第一个文件的 path 中提取 type (例如 'ad')
+	// 正则匹配 unifile://usr/ 后面到下一个斜杠之间的内容
+	const pathSample = brokenFiles[0].path
+	const typeMatch = pathSample.match(/unifile:\/\/usr\/([^\/]+)\//)
+	const type = typeMatch?.[1] ?? 'ad'
+
+	const adFileUrl = `${basePath}${type}/`
+	const CACHE_KEY = `AD_CACHE_DATA_${type.toUpperCase()}`
+	
+	// 2. 读取当前所有缓存，以便更新
+	let currentCache = loadCache(CACHE_KEY)
+	const repairedList : dFile[] = []
+
+	console.log(`准备修复 ${brokenFiles.length} 个文件，类型: ${type}`)
+
+	// 3. 循环重新下载
+	for (const broken of brokenFiles) {
+		try {
+			// 直接调用你现有的单个下载函数（它内部使用 saveFileSync 会自动覆盖旧文件）
+			const newFile = await downloadFile(adFileUrl, broken.data)
+			
+			// 4. 更新缓存数组中的对应项
+			const index = currentCache.findIndex(item => item.fileName === newFile.fileName)
+			if (index !== -1) {
+				currentCache[index] = newFile
+			} else {
+				currentCache.push(newFile)
+			}
+			
+			repairedList.push(newFile)
+			console.log(`文件修复成功: ${newFile.fileName}`)
+		} catch (e) {
+			console.error(`文件修复失败: ${broken.fileName}`, e)
+		}
+	}
+
+	// 5. 持久化更新后的缓存
+	uni.setStorageSync(CACHE_KEY, JSON.stringify(currentCache))
+	
+	return repairedList
+}
+
+
+/**
  * 文件统一下载管理
  * @param {Array}list 文件列表 
  * @param {String} type 储存文件夹
