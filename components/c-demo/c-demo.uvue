@@ -4,8 +4,8 @@
 	 */
 	import { State } from "./types.uts"
 	// #ifdef APP-ANDROID
-	import { SerialManager } from "@/utils/serial/index.uts"
-	import { ModbusQueue } from "@/utils/serial/queue.uts"
+	import { SerialManager } from "@/serial/serial.uts"
+	import { ModbusQueue } from "@/serial/queue.uts"
 	import type { TempObject } from '@/api/types/tempTypes.uts'
 	import type { ResponseData } from '@/utils/request.uts';
 	// import { getTemp } from "@/api/test.uts"

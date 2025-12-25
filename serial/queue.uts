@@ -1,4 +1,4 @@
-import { SerialManager } from './index.uts';
+import { SerialManager } from './serial.uts';
 
 type FeedbackCallback = (command: string, response: string, success: boolean) => void;
 

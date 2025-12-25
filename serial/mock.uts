@@ -1,0 +1,90 @@
+import { toNewObject } from "@/utils/tools.uts"
+/** 打开串口需要的参数 */
+type OpenOptions = {
+	port : string;
+	baudRate : number;
+	dataBits: number;
+	stopBits: number;
+	parity: number;
+	flowCon: number;
+}
+/**
+ * Mock RS232Serial 插件类
+ * 用于在没有硬件的情况下测试 SerialManager 逻辑
+ */
+export class RS232Serial {
+	private isOpened : boolean = false
+	private currentPort : string | null = null
+	private callback : ((data : string) => void) | null = null
+
+	/** 模拟系统可用的串口列表 */
+	public getDeviceList() : string[] {
+		return ["/dev/ttyS0"; "/dev/ttyS1", "/dev/ttyAMA0"]
+	}
+
+
+	/** 模拟打开串口 */
+	public open(options : any) : void {
+		let option = toNewObject<OpenOptions>(options)
+		if (option.port == "/dev/ttyAMA0") {
+			// 模拟一个永远打不开的端口
+			throw new Error("Permission denied")
+		}
+		this.isOpened = true
+		this.currentPort = option.port
+		console.log(`[Mock] 串口已打开: ${this.currentPort}, 波特率: ${option.baudRate}`)
+	}
+
+	/** 模拟发送数据 */
+	public sendHex(hex : string) : void {
+		if (!this.isOpened) {
+			throw new Error("Serial port not opened")
+		}
+		console.log(`[Mock] 发送数据到 ${this.currentPort}: ${hex}`)
+
+		// 模拟 Modbus 响应逻辑
+		// 如果发送的是 SerialManager 默认的测试帧，则异步回传一个成功的响应
+		if (hex === "010302BC000A0591") {
+			this.simulateModbusResponse()
+		}else{
+			this.sendMessage(hex)
+		}
+	}
+	private sendMessage(msg:string){
+		setTimeout(() => {
+			if (this.callback != null) {
+				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
+				// 假设响应 01 03 04 ...
+				this.callback(msg)
+			}
+		}, 10)
+	}
+	/** 模拟 Modbus RTU 设备返回数据 (带 CRC 校验) */
+	private simulateModbusResponse() {
+		// 模拟 150ms 后返回数据（模拟硬件延迟）
+		setTimeout(() => {
+			if (this.callback != null) {
+				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
+				// 假设响应 01 03 04 ...
+				const mockData = "0103140000000000000000000000000000000000000000A367" 
+				console.log(`[Mock] 收到来自 ${this.currentPort} 的响应: ${mockData}`)
+				this.callback(mockData)
+			}
+		}, 150)
+	}
+
+	/** 模拟数据订阅 */
+	public subscribe(type : string, cb : (data : string) => void) : void {
+		if (type === 'HEX') {
+			this.callback = cb
+		}
+	}
+
+	/** 模拟关闭串口 */
+	public close() : void {
+		console.log(`[Mock] 串口已关闭: ${this.currentPort}`)
+		this.isOpened = false
+		this.currentPort = null
+		this.callback = null
+	}
+}
