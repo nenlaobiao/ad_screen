@@ -87,7 +87,7 @@
 	]
 	const state = reactive<State>({
 		machineCode: '15294',
-		adList: [],
+		adList: adData,
 		goodsList: [],
 		petWashInfo: [],
 		petWash: null,
@@ -184,9 +184,6 @@
 	onLoad(() => {
 		getTemplateFn()
 		getDeviceInfoFn()
-		fileManage(adData).then((res : dFile[]) => {
-			state.adList = res
-		})
 	})
 </script>
 

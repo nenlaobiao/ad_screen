@@ -1,6 +1,7 @@
+import type { dFile } from '@/pages/index/types.uts'
 export type AdFit = "contain" | "fill" | "cover"
-
 export type State = {
+	list:dFile[];
 	videoId:string;
 	current:number;
 	length:number;

@@ -8,7 +8,7 @@ export type AdItem = {
 }
 export type State = {
 	machineCode:string;
-	adList : dFile[];
+	adList : AdItem[];
 	goodsList : dFile[];
 	petWashInfo : DeviceInfo[];
 	petWash:DeviceInfo | null;
