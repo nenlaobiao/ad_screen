@@ -103,8 +103,8 @@
 
 			<view class="rightBox">
 
-				<!-- 套餐支付页 -->
-				<c-pay :machineCode="state.machineCode" />
+				<!-- 套餐、商品 -->
+				<c-pay-goods :machineCode="state.machineCode" />
 
 				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
