@@ -2,16 +2,17 @@
 	/**
 	 * 商品广告
 	 */
-	import type { dFile } from '@/pages/index/types.uts'
-	import type { CAdChange } from "./types.uts"
+	import { getGoodsInfo, getTemplate } from '@/api/index.uts'
+	import { toNewObject, toNewArray} from "@/utils/tools.uts"
+	import fileManage from "@/utils/file.uts"
 	import { getQrUrl } from "@/utils/tools.uts"
 	import { mpGoodsQrUrl } from "@/config.uts"
-
+	
+	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
+	import type { Goods } from '@/api/types/goodsTypes.uts'
+	import type { AdItem, dFile } from '@/pages/index/types.uts'
+	import type { CAdChange, State } from "./types.uts"
 	const props = defineProps({
-		list: {
-			type: Array as PropType<dFile[]>,
-			default: () => []  // 数组/对象必须用函数返回
-		},
 		touch: {
 			type: Boolean,
 			default: true
@@ -25,6 +26,10 @@
 		(e : "change", event : CAdChange) : void
 	}>()
 
+	const state = reactive<State>({
+		list: [],
+	})
+	
 	function goodsQRcode(id : number | string) {
 		return getQrUrl(mpGoodsQrUrl, `?spm=0.50.${id}.1.2`)
 	}
@@ -33,19 +38,77 @@
 		let detail = e.detail
 		// console.log('swiperChange',e)
 		emits('change', {
-			id: props.list[detail.current].data.id,
+			id: state.list[detail.current].data.id,
 			index: detail.current,
 			type: detail.source,
 			isPlay: false
 		})
 	}
+	// 获取商品信息
+	async function getGoodsInfoFn(ids : string) {
+		try {
+			console.log('加载商品推荐')
+			let res = await getGoodsInfo({ ids })
+			if (res.error == 0) {
+				let goodsData = res.data as Goods[]
+				if (goodsData.length > 0) {
+					let goodsAD : AdItem[] = []
+					for (let i = 0; i < goodsData.length; i++) {
+						let goods = toNewObject<Goods>(goodsData[i])
+						let adItem = {
+							id: goods.id,
+							src: `https://api-prod-shop.jingxishenghuo1688.com/index/getAliShopImage?image=${goods.image}`,
+							type: 'image',
+							title: goods.title,
+						} as AdItem
+						goodsAD.push(adItem)
+					}
+					fileManage(goodsAD, 'goods').then((res : dFile[]) => {
+						state.list = res
+					})
+				}
+			}
+		} catch (error) {
+			console.log('getGoodsInfoFn --- catch', error)
+		}
+	}
+	// 获取装修模板信息
+	async function getTemplateFn() {
+		try {
+			let res = await getTemplate({
+				templateId:117
+			})
+			if (res.error == 0) {
+				let resData = toNewObject<TempObject>(res.data)
+				let templateData = resData.template.home?.data
+				if (templateData != null) {
+					// 获取指定组件装修信息
+					let templateDataItem = templateData.find(obj => obj.type == 'goodsClass')
+					if (templateDataItem != null) {
+						// 获取组件内商品数据
+						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
+						let ids = goodsClassData.templateList[0].goodsIds
+						let adIds = ids.slice(0, 6).map(n => `${n}`).join(',')
+						console.log('adIds', adIds)
+						getGoodsInfoFn(adIds)
+					}
+				}
+			}
+		} catch (error) {
+			console.log('getTemplate --- 请求失败', error)
+		}
+	}
+	
+	onLoad(()=>{
+		getTemplateFn()
+	})
 </script>
 
 <template>
 	<view class="goodsAdBox">
-		<swiper class="goods-swiper" v-if="list.length > 0" :disable-touch="!touch" :interval="interval" :vertical="false"
+		<swiper class="goods-swiper" v-if="state.list.length > 0" :disable-touch="!touch" :interval="interval" :vertical="false"
 			:circular="true" :autoplay="true" @change="swiperChange">
-			<swiper-item class="goods-swiper-item" v-for="ad in list" :key="ad.data.id">
+			<swiper-item class="goods-swiper-item" v-for="ad in state.list" :key="ad.data.id">
 				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
 				<view class="goods-info">
 					<text class="goods-info-title">{{ad.data.title}}</text>

@@ -1,4 +1,3 @@
-import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 
 export type AdItem = {
 	id : number;
@@ -9,10 +8,7 @@ export type AdItem = {
 export type State = {
 	machineCode:string;
 	adList : AdItem[];
-	goodsList : dFile[];
-	petWashInfo : DeviceInfo[];
-	petWash:DeviceInfo | null;
-	showPay:boolean;
+
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess | null | false
 
@@ -27,4 +23,3 @@ export type dFile = {
 //   tempFilePath:string;
 //   fileName:string
 // }
-export type DownloadFile = Promise<DownloadFileSuccessCallback | dFile | null | undefined | false>

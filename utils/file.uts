@@ -134,6 +134,7 @@ function downloadFile(url:string, data : AdItem) : Promise<dFile> {
 				if (res.statusCode == 200) {
 					try {
 						getMediaInfo(res.tempFilePath, data.type).then((info : GetMediaInfo) => {
+							console.log('222222')
 							const fileName = getFileName(data.src)
 							const file : dFile = {
 								data,
@@ -142,7 +143,10 @@ function downloadFile(url:string, data : AdItem) : Promise<dFile> {
 								mediaInfo: info
 							}
 							resolve(file)
-						}).catch(() => reject(new Error('媒体信息获取失败')))
+						}).catch((error) => {
+						console.log('1111111',error)
+							reject(new Error('媒体信息获取失败'))
+						})
 					} catch (error) {
 						reject(new Error('媒体信息获取失败'))
 					}
@@ -162,12 +166,12 @@ function getMediaInfo(src : string, type : string) : Promise<GetMediaInfo> {
 			console.log(`媒体信息获取失败 (${label}), err`,err)
 			reject(err)
 		}
-		if (type === 'image') {
+		if (type == 'image') {
 			uni.getImageInfo({ src, success: resolve, fail: err => fail('image', err) })
-		} else if (type === 'video') {
+		} else if (type == 'video') {
 			uni.getVideoInfo({ src, success: resolve, fail: err => fail('video', err) })
 		} else {
-			reject(new Error('不支持的媒体类型'))
+			reject(new Error(`不支持的媒体类型 -- ${type}`))
 		}
 	})
 }
@@ -193,7 +197,7 @@ export async function repairSingleFile(brokenFile : dFile) : Promise<dFile[]> {
 
 		// 3. 执行强制覆盖下载
 		const newFile = await downloadFile(adFileUrl, brokenFile.data)
-
+		console.log(`[newFile]`,newFile)
 		// 4. 更新数组中的对应项
 		const index = currentCache.findIndex(item => item.fileName === newFile.fileName)
 		if (index !== -1) {

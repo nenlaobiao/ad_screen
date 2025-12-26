@@ -1,15 +1,7 @@
 <script setup lang="uts">
-	import { getDeviceInfo, getGoodsInfo, getTemplate } from '@/api/index.uts'
 	import { toNewObject, toNewArray} from "@/utils/tools.uts"
-	import fileManage from "@/utils/file.uts"
-	import { ossUrl, llbbOssUrl ,aliOssUrl} from "@/config.uts"
-
-	import type { CAdChange } from '@/components/c-ad/types.uts'
-	import type { AdItem, State, dFile } from './types.uts'
-	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
-	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import type { Goods } from '@/api/types/goodsTypes.uts'
-
+	
+	import type { AdItem, State } from './types.uts'
 
 	const adData : AdItem[] = [
 		{
@@ -88,102 +80,9 @@
 	const state = reactive<State>({
 		machineCode: '15294',
 		adList: adData,
-		goodsList: [],
-		petWashInfo: [],
-		petWash: null,
-		showPay: false,
 	})
 
-	function cdn(url : string) : string {
-		return ossUrl + url
-	}
-	function adChange(e : any) {
-		// console.log('adChange', e as CAdChange)
-	}
-	function goodsChange(e : any) {
-		// console.log('goodsChange', e as CAdChange)
-	}
-	function payTap(e : DeviceInfo) {
-		state.petWash = e
-		state.showPay = true
-		console.log('payTap', e.title)
-	}
-	// 获取商品信息
-	async function getGoodsInfoFn(ids : string) {
-		try {
-			console.log('加载商品推荐')
-			let res = await getGoodsInfo({ ids })
-			if (res.error == 0) {
-				let goodsData = res.data as Goods[]
-				if (goodsData.length > 0) {
-					let goodsAD : AdItem[] = []
-					for (let i = 0; i < goodsData.length; i++) {
-						let goods = toNewObject<Goods>(goodsData[i])
-						let adItem = {
-							id: goods.id,
-							src: `https://api-prod-shop.jingxishenghuo1688.com/index/getAliShopImage?image=${goods.image}`,
-							type: 'image',
-							title: goods.title,
-						} as AdItem
-						goodsAD.push(adItem)
-					}
-					fileManage(goodsAD, 'goods').then((res : dFile[]) => {
-						state.goodsList = res
-					})
-				}
-			}
-		} catch (error) {
-			console.log('getGoodsInfoFn --- catch', error)
-		}
-	}
-	// 获取套餐信息
-	async function getDeviceInfoFn() {
-		try {
-			console.log('加载套餐信息')
-			let res = await getDeviceInfo()
-			if (res.error == 0) {
-				let data = toNewArray<DeviceInfo>(res.data)
-				state.petWashInfo = data
-				state.petWash = data[0]
-			}
-		} catch (error) {
-			console.log('getDeviceInfoFn --- catch', error)
-		}
-	}
-	// 获取装修模板信息
-	async function getTemplateFn() {
-		try {
-			let res = await getTemplate({
-				templateId:117
-			})
-			if (res.error == 0) {
-				let resData = toNewObject<TempObject>(res.data)
-				let templateData = resData.template.home?.data
-				if (templateData != null) {
-					// 获取指定组件装修信息
-					let templateDataItem = templateData.find(obj => obj.type == 'goodsClass')
-					if (templateDataItem != null) {
-						// 获取组件内商品数据
-						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
-						let ids = goodsClassData.templateList[0].goodsIds
-						let adIds = ids.slice(0, 6).map(n => `${n}`).join(',')
-						console.log('adIds', adIds)
-						getGoodsInfoFn(adIds)
-					}
-				}
-			}
-		} catch (error) {
-			console.log('getTemplate --- 请求失败', error)
-		}
-	}
-	function payBack() {
-		state.showPay = false
-	}
-
-	const seconds = 66
 	onLoad(() => {
-		getTemplateFn()
-		getDeviceInfoFn()
 	})
 </script>
 
@@ -198,23 +97,14 @@
 			<view class="adBox">
 				<image class="adBox-bg" src="/static/BG/adbg.png" />
 				<view class="adBox-box">
-					<c-ad :list="state.adList" @change="adChange" />
+					<c-ad :list="state.adList" />
 				</view>
 			</view>
 
 			<view class="rightBox">
-				<!-- 右上商品广告区域 -->
-				<view class="goodsAd" v-show="true">
-					<c-goods-ad :list="state.goodsList" @change="goodsChange" />
-				</view>
-
-				<!-- 右下付款按钮 -->
-				<view class="paybtn" v-show="true">
-					<c-pay-btn :list="state.petWashInfo" @onTap="payTap" />
-				</view>
 
 				<!-- 套餐支付页 -->
-				<c-pay-info v-if="state.showPay" :data="state.petWash" :machineCode="state.machineCode" @back="payBack" />
+				<c-pay :machineCode="state.machineCode" />
 
 				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
@@ -290,24 +180,7 @@
 				width: 327rpx;
 				height: 260rpx;
 
-				// ---------- 商品广告---------
-				.goodsAd {
-					position: absolute;
-					left: 0;
-					top: 0;
-					width: 327rpx;
-					height: 150rpx;
 
-				}
-
-				//  ---------- 支付按钮---------
-				.paybtn {
-					position: absolute;
-					left: 0;
-					bottom: 0;
-					width: 327rpx;
-					height: 102rpx;
-				}
 			}
 
 		}

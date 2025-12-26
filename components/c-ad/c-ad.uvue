@@ -25,6 +25,8 @@
 		length:0,
 		isPlay:false,
 		timer:null,
+		inRepair:false,
+		repairList:[]
 	})
 
 	const adData = computed<dFile | null>(():dFile | null =>{
@@ -93,29 +95,53 @@
 			context?.pause()
 		}
 	}
+
+	function initAD (list: dFile[]){
+		state.list = list
+		state.length = list.length
+		state.current = 0 // 列表变化时，从头开始
+		state.isPlay = false // 重置播放状态
+		clearTimer() // 清除旧的定时器
+		
+		nextTick(()=>{
+			next() // 开始新的播放循环
+		})
+	}
 	
 	watch(():AdItem[]=>props.list, (newList: AdItem[]) => {
 		if(newList.length > 0){
 			fileManage(newList).then((res : dFile[]) => {
-				state.list = res
-				state.length = res.length
-				state.current = 0 // 列表变化时，从头开始
-				state.isPlay = false // 重置播放状态
-				clearTimer() // 清除旧的定时器
-
-				nextTick(()=>{
-					next() // 开始新的播放循环
-				})
+				initAD(res)
 			})
 		}
 	},{
 		immediate:true
 	})
-
+	
 	function videoEnded(){
 		// 视频播放结束，直接播放下一个
 		next()
 	}
+	async function repairAD(data:dFile){
+		if(state.inRepair != true){
+			try {
+				state.inRepair = true
+				state.repairList.push(data)
+				
+				let list = await repairSingleFile(data)
+				initAD(list)
+				state.repairList.shift()
+				if(state.repairList.length > 0){
+					repairAD(state.repairList[0])
+				}
+			} catch (error) {
+				console.log('repairAD-error',error)
+				state.inRepair = false
+				state.repairList.shift()
+			}
+		}
+	}
+	
 	function imageError(data:dFile,e:UniImageErrorEvent){
 		console.log('imageError',e)
 		console.log('imagedata',data)
@@ -124,7 +150,7 @@
 		console.log('videoError',e)
 		console.log('videodata',data)
 		next()
-		repairSingleFile(data)
+		repairAD(data)
 	}
 	onPageShow(()=>{
 		play()
