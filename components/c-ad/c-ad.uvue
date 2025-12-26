@@ -164,7 +164,8 @@
 </script> 
 
 <template>
-	<view class="ad">
+	<image class="adBox-bg" src="/static/BG/adbg.png" />
+	<view class="adBox-box">
 		<!-- 视频广告 -->
 		<template v-if="adData != null && state.isPlay">
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" @load="imageLoad" 
@@ -179,13 +180,24 @@
 </template>
 
 <style lang="scss" >
-	.ad{
+	.adBox-bg {
+		position: absolute;
+		top: 0rpx;
+		left: 0rpx;
+		width: 100%;
+		height: 100%;
+	}
+	
+	.adBox-box{
+		position: absolute;
+		top: 6rpx;
+		left: 4rpx;
+		width: 366rpx;
+		height: 260rpx;
 		background: #B8E3FA;
+		box-sizing: border-box; // 确保边框不会增加元素的总宽高
 		border-radius: 26rpx;
 		border: 9rpx solid #fff; // 直接在 ad 上设置边框
-		box-sizing: border-box; // 确保边框不会增加元素的总宽高
-		height: 100%;
-		width: 100%;
 		.swiper-img {
 			height: 100%;
 			width: 100%;
@@ -194,19 +206,22 @@
 		.swiper-video {
 			height: 100%;
 			width: 100%;
+			
 		}
 		.ad-empty{
 			width: 100%;
 			height: 100%;
 		}
 	}
-		.ad-border{
-			position: absolute;
-			z-index: 1;
-			border-radius: 26rpx;
-			border: 9rpx solid #fff;
-			width: 100%;
-			height: 100%;
-			pointer-events: none;
-		}
+	.ad-border{
+		position: absolute;
+		top: 6rpx;
+		left: 4rpx;
+		z-index: 1;
+		width: 366rpx;
+		height: 260rpx;
+		border-radius: 26rpx;
+		border: 9rpx solid #fff;
+		pointer-events: none;
+	}
 </style>

@@ -95,10 +95,7 @@
 
 			<!-- 左侧广告 -->
 			<view class="adBox">
-				<image class="adBox-bg" src="/static/BG/adbg.png" />
-				<view class="adBox-box">
-					<c-ad :list="state.adList" />
-				</view>
+				<c-ad :list="state.adList" />
 			</view>
 
 			<view class="rightBox">
@@ -153,24 +150,9 @@
 			.adBox {
 				width: 375rpx;
 				height: 272rpx;
-				padding: 6rpx 4rpx;
 				position: relative;
 				left: 13rpx;
 				top: 26rpx;
-
-				.adBox-bg {
-					position: absolute;
-					top: 0rpx;
-					left: 0rpx;
-					width: 100%;
-					height: 100%;
-				}
-
-				.adBox-box {
-					position: relative;
-					width: calc(375rpx - 8rpx);
-					height: calc(272rpx - 12rpx);
-				}
 			}
 
 			.rightBox {
