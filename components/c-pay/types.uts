@@ -1,7 +1,9 @@
 import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
+import type { dFile } from "@/pages/index/types.uts"
 
 export type State = {
 	petWashInfo : DeviceInfo[];
 	petWash:DeviceInfo | null;
 	showPay:boolean;
+	goodsList : dFile[];
 }

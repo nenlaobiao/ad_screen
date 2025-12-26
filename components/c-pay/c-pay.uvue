@@ -2,13 +2,18 @@
 	/**
 	 * 套餐支付页
 	 */
+	import { getGoodsInfo, getTemplate, getDeviceInfo } from '@/api/index.uts'
 	import { toNewObject, toNewArray} from "@/utils/tools.uts"
-	import { getDeviceInfo } from '@/api/index.uts'
+	import fileManage from "@/utils/file.uts"
+	import { mpGoodsQrUrl } from "@/config.uts"
 	import { mpWashQrUrl } from "@/config.uts"
 	import { getQrUrl } from "@/utils/tools.uts"
 	
+	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
-	import type { CAdChange, State } from "./types.uts"
+	import type { Goods } from '@/api/types/goodsTypes.uts'
+	import type { AdItem, dFile } from '@/pages/index/types.uts'
+	import type { State } from "./types.uts"
 	const props = defineProps({
 		data: {
 			type: Object as DeviceInfo,
@@ -24,11 +29,79 @@
 	}>()
 	
 	const state = reactive<State>({
+		goodsList: [],
 		petWashInfo: [],
 		petWash: null,
 		showPay: false,
 	})
+	function goodsQRcode(id : number | string) {
+		return getQrUrl(mpGoodsQrUrl, `?spm=0.50.${id}.1.2`)
+	}
 	
+	function swiperChange(e : UniSwiperChangeEvent) {
+		let detail = e.detail
+		// console.log('swiperChange',e)
+		emits('change', {
+			id: state.goodsList[detail.current].data.id,
+			index: detail.current,
+			type: detail.source,
+			isPlay: false
+		})
+	}
+	// 获取商品信息
+	async function getGoodsInfoFn(ids : string) {
+		try {
+			console.log('加载商品推荐')
+			let res = await getGoodsInfo({ ids })
+			if (res.error == 0) {
+				let goodsData = res.data as Goods[]
+				if (goodsData.length > 0) {
+					let goodsAD : AdItem[] = []
+					for (let i = 0; i < goodsData.length; i++) {
+						let goods = toNewObject<Goods>(goodsData[i])
+						let adItem = {
+							id: goods.id,
+							src: `https://api-prod-shop.jingxishenghuo1688.com/index/getAliShopImage?image=${goods.image}`,
+							type: 'image',
+							title: goods.title,
+						} as AdItem
+						goodsAD.push(adItem)
+					}
+					fileManage(goodsAD, 'goods').then((res : dFile[]) => {
+						state.goodsList = res
+					})
+				}
+			}
+		} catch (error) {
+			console.log('getGoodsInfoFn --- catch', error)
+		}
+	}
+	// 获取装修模板信息
+	async function getTemplateFn() {
+		try {
+			let res = await getTemplate({
+				templateId:117
+			})
+			if (res.error == 0) {
+				let resData = toNewObject<TempObject>(res.data)
+				let templateData = resData.template.home?.data
+				if (templateData != null) {
+					// 获取指定组件装修信息
+					let templateDataItem = templateData.find(obj => obj.type == 'goodsClass')
+					if (templateDataItem != null) {
+						// 获取组件内商品数据
+						let goodsClassData = toNewObject<GoodsClassData>(templateDataItem.data)
+						let ids = goodsClassData.templateList[0].goodsIds
+						let adIds = ids.slice(0, 6).map(n => `${n}`).join(',')
+						console.log('adIds', adIds)
+						getGoodsInfoFn(adIds)
+					}
+				}
+			}
+		} catch (error) {
+			console.log('getTemplate --- 请求失败', error)
+		}
+	}
 	function openDevice() {
 		console.log('open')
 		emits('open', props.data)
@@ -74,30 +147,46 @@
 
 	
 	onLoad(()=>{
+		getTemplateFn()
 		getDeviceInfoFn()
 	})
-	
+
 </script>
 
 <template>
 	
 	<!-- 右上商品广告区域 -->
-	<view class="goodsAd" v-show="true">
-		<c-goods-ad />
+	<view class="goodsAdBox">
+		<swiper class="goods-swiper" v-if="state.goodsList.length > 0" :interval="6000" :vertical="false"
+			:circular="true" :autoplay="true" @change="swiperChange">
+			<swiper-item class="goods-swiper-item" v-for="ad in state.goodsList" :key="ad.data.id">
+				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
+				<view class="goods-info">
+					<text class="goods-info-title">{{ad.data.title}}</text>
+					<text class="goods-info-tips">微信扫码购买</text>
+					<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
+				</view>
+			</swiper-item>
+		</swiper>
+		<view v-else class="goodsAd-empty">
+			<image class="empty-qr" src="/static/mpqr.png" />
+			<view class="empty-textBox">
+				<text class="textBox-title">侎宠小程序</text>
+				<text class="textBox-tips">扫一扫，即刻开启爱宠专属的优质服务体验！</text>
+			</view>
+		</view>
 	</view>
 	
-	<!-- 右下付款按钮 -->
-	<view class="paybtn" v-show="true">
-		<view class="payBtnBox">
-			<view v-for="(item,index) in state.petWashInfo" hover-class="hover-class" :hover-stay-time="200"
-				:class="['payBtnBox-item',{'payBtnBox-item-first':index==0}]" :style="{backgroundColor:item.backgorundColor}"
-				@click="payTap(item)">
-				<image class="payBtnBox-item-image" :src="item.image"></image>
-				<view class="textBox">
-					<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
-					<text :style="{color:item.color}" class="text-subTitle">{{item.sub_title}}</text>
-					<text :style="{color:item.color}" class="text-desc">{{item.desc}}</text>
-				</view>
+	<!-- 选择套餐按钮 -->
+	<view class="payBtnBox">
+		<view v-for="(item,index) in state.petWashInfo" hover-class="hover-class" :hover-stay-time="200"
+			:class="['payBtnBox-item',{'payBtnBox-item-first':index==0}]" :style="{backgroundColor:item.backgorundColor}"
+			@click="payTap(item)">
+			<image class="payBtnBox-item-image" :src="item.image"></image>
+			<view class="textBox">
+				<text :style="{color:item.color}" class="text-title">{{item.title}}</text>
+				<text :style="{color:item.color}" class="text-subTitle">{{item.sub_title}}</text>
+				<text :style="{color:item.color}" class="text-desc">{{item.desc}}</text>
 			</view>
 		</view>
 	</view>
@@ -134,23 +223,92 @@
 	}
 
 	// ---------- 商品广告---------
-	.goodsAd {
+	.goodsAdBox {
 		position: absolute;
 		left: 0;
 		top: 0;
 		width: 327rpx;
 		height: 150rpx;
-	
+		background-color: #84CAEB;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
 	}
 	
-	//  ---------- 支付按钮---------
-	.paybtn {
-		position: absolute;
-		left: 0;
-		bottom: 0;
-		width: 327rpx;
-		height: 102rpx;
+	.goodsAd-empty {
+		height: 100%;
+		flex-direction: row;
+		align-items: center;
+	
+		.empty-qr {
+			width: 100rpx;
+			height: 100rpx;
+			margin-left: 20rpx;
+			margin-right: 14rpx;
+			border-radius: 10rpx;
+		}
+	
+		.empty-textBox {
+			flex: 1;
+	
+			.textBox-title {
+				font-size: 18rpx;
+				font-weight: bold;
+				color: #fff;
+			}
+	
+			.textBox-tips {
+				margin-top: 4rpx;
+				font-size: 14rpx;
+				text-overflow: ellipsis;
+				lines: 3;
+				color: #fff;
+			}
+		}
 	}
+	
+	.goods-swiper {
+		width: 100%;
+		height: 100%;
+		border-radius: 12rpx;
+		overflow: hidden;
+	
+		.goods-swiper-item {
+			flex-direction: row;
+			.swiper-img {
+				width: 188rpx;
+				height: 100%;
+			}
+	
+			.goods-info {
+				flex: 1;
+				padding: 0 6rpx;
+				justify-content: flex-end;
+				align-items: center;
+	
+				.goods-info-title {
+					margin-bottom: 4rpx;
+					font-size: 10rpx;
+					color: #fff;
+					text-overflow: ellipsis;
+					lines: 3;
+				}
+	
+				.goods-info-tips {
+					margin-bottom: 4rpx;
+					font-size: 8rpx;
+					color: #fff;
+				}
+	
+				.mpQr {
+					margin-bottom: 8rpx;
+					height: 73rpx;
+					width: 73rpx;
+				}
+			}
+		}
+	}
+
+	// ------------支付信息 -----------
 
 	.payBoxComp {
 		height: 100%;
@@ -250,12 +408,17 @@
 		pointer-events: none;
 	}
 	
+	// ------------选择套餐按钮 -----------
+	
 	.payBtnBox {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: 327rpx;
+		height: 102rpx;
 		align-items: center;
 		flex-direction: row;
 		justify-content: space-between;
-		width: 100%;
-		height: 100%;
 	
 		.payBtnBox-item-first {
 			margin-left: 0 !important;
