@@ -117,3 +117,16 @@ export function getUUID() : string {
 		return v.toString(16);
 	});
 }
+
+/** 获取 h:m:s.ms */
+export function getTimeHMSMs(date: Date = new Date()): string {
+	const pad2 = (n: number) => n.toString().padStart(2, '0')
+	const pad3 = (n: number) => n.toString().padStart(3, '0')
+
+	const h = pad2(date.getHours())
+	const m = pad2(date.getMinutes())
+	const s = pad2(date.getSeconds())
+	const ms = pad3(date.getMilliseconds())
+
+	return `${h}:${m}:${s}.${ms}`
+}

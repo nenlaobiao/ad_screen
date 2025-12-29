@@ -65,3 +65,33 @@ export function checkCRC16(fullFrame: string): boolean {
         return false;
     }
 }
+
+/**
+ * 解析 Modbus 字符串读取响应 (功能码 03)
+ * 还原规则：Modbus 寄存器传输为 Big-Endian (高位在前)，
+ * 但存储时低位为第一个字符，高位为第二个字符。
+ * 因此接收到的顺序是 Char1(High) Char0(Low)，需要交换为 Char0 Char1。
+ * 
+ * @param hexString 完整的 Modbus 响应帧 (例如 '01 03 14 6D 62 ...')
+ * @returns 解析后的字符串 (例如 'bm2024...')
+ */
+export function parseModbusString(hexString: string): string {
+    // 移除空格
+    const hex = hexString.replace(/\s+/g, "");
+
+    // 基础校验: 地址(2)+功能码(2)+字节数(2) = 6 chars
+    if (hex.length < 6) return "";
+
+    const byteCount = parseInt(hex.substring(4, 6), 16);
+    const dataHex = hex.substring(6, 6 + byteCount * 2);
+
+    let result = "";
+    for (let i = 0; i < dataHex.length; i += 4) {
+        const highByte = parseInt(dataHex.substring(i, i + 2), 16);
+        const lowByte = parseInt(dataHex.substring(i + 2, i + 4), 16);
+
+        if (!isNaN(lowByte) && lowByte !== 0) result += String.fromCharCode(lowByte);
+        if (!isNaN(highByte) && highByte !== 0) result += String.fromCharCode(highByte);
+    }
+    return result;
+}

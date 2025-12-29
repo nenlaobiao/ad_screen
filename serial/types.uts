@@ -2,9 +2,75 @@
  * 串口发送队列中的单个请求项
  */
 export interface QueuedRequest {
-    frame: string; // 存储带 CRC 的完整帧
-    resolve: (response: string) => void; // 成功回调 (返回不带 CRC 的数据)
-    reject: (error: Error) => void; // 失败回调
-    retriesLeft: number; // 剩余重试次数
-    timeoutTimer: number | null; // 超时定时器 ID
+	frame : string; // 存储带 CRC 的完整帧
+	resolve : (response : string) => void; // 成功回调 (返回不带 CRC 的数据)
+	reject : (error : Error) => void; // 失败回调
+	retriesLeft : number; // 剩余重试次数
+	timeoutTimer : number | null; // 超时定时器 ID
+}
+
+
+/** 打开串口需要的参数 */
+export type OpenOptions = {
+	port : string
+	baudRate : number
+	dataBits : number
+	stopBits : number
+	parity : number
+	flowCon : number
+}
+/** 寄存器地址 */
+export type RegisterMap = {
+	DEVICE_NAME : number; // 设备号
+	WATER_TEMPERATURE : number; // 水温（单位：℃）
+	ROOM_TEMPERATURE : number; // 室温（单位：℃）
+	WEIGHT : number; // 重量（单位KG）
+	WASH_PHASE : number;        // 当前洗涤阶段 (D22)
+	FAULT_REGISTER : number;    // 故障码寄存器 (D24)
+	LIQUID_LEVEL_STATUS : number; // 液体液位状态 (D48)
+}
+
+/** 洗涤阶段状态码 (D22) */
+export type WashPhase = {
+	PRE_STERILIZE : number;                // 开门前消毒阶段
+	DOOR_OPEN_WAITING_FOR_PET : number;    // 开门阶段
+	ADAPTATION_WAIT : number;              // 适应等待阶段
+	PRE_WASH_RINSE : number;               // 清洗冲洗阶段
+	SHOWER_GEL_WASH : number;              // 沐浴露护理阶段
+	POST_SHAMPOO_RINSE : number;           // 清洗冲洗阶段
+	CONDITIONER_CARE : number;             // 护毛素护理阶段
+	FINAL_RINSE : number;                  // 清水清理冲洗阶段
+	DRYING : number;                       // 烘干阶段
+	DOOR_OPEN_WAITING_FOR_PICKUP : number; // 烘干后开门阶段
+	POST_WASH_STERILIZE : number;          // 消毒阶段
+	FAULT : number;                        // 故障反馈阶段
+	POST_STERILIZE_STANDBY : number;         // 消毒后待机
+	POST_STERILIZE_DOOR_OPEN_REMINDER : number; // 消毒后门未关提醒
+}
+
+/** 故障代码位标志 (D24) - 可以通过位运算组合 */
+export type FaultCode = {
+	NONE : number;                         // 无故障
+	COLD_AIR_FAN : number;                 // 冷风机故障
+	UV_LIGHT : number;                     // 紫外线故障
+	BATHROOM_LIGHTING : number;            // 浴室照明故障
+	DOOR_LOCK : number;                    // 门锁故障
+	BOOSTER_PUMP : number;                 // 增压泵故障
+	WATER_HEATER : number;                 // 热水器故障
+	WARM_AIR_FAN_HALF_POWER : number;      // 暖风机半功率故障
+	WARM_AIR_FAN_FULL_POWER : number;      // 暖风机全功率故障
+	EMERGENCY_STOP_PRESSED : number;       // 急停被按下
+	LOW_BATTERY_ALARM : number;            // 电池低报警
+}
+
+/** 液体液位状态 (D48) */
+export type LiquidLevelStatus = {
+	NORMAL : number;                              // 液位正常
+	DISINFECTANT_LOW : number;                    // 消毒液低液位
+	SHOWER_GEL_LOW : number;                      // 沐浴露低液位
+	CONDITIONER_LOW : number;                     // 护毛素低液位
+	DISINFECTANT_AND_SHOWER_GEL_LOW : number;     // 消毒液+沐浴露低液位
+	DISINFECTANT_AND_CONDITIONER_LOW : number;    // 消毒液+护毛素低液位
+	SHOWER_GEL_AND_CONDITIONER_LOW : number;    // 沐浴露+护毛素低液位
+	ALL_LOW : number;                             // 消毒液+沐浴露+护毛素低液位
 }

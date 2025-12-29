@@ -1,92 +1,305 @@
 import { toNewObject } from "@/utils/tools.uts"
-/** 打开串口需要的参数 */
-type OpenOptions = {
-	port : string;
-	baudRate : number;
-	dataBits : number;
-	stopBits : number;
-	parity : number;
-	flowCon : number;
+import type { WashPhase, OpenOptions, RegisterMap, LiquidLevelStatus, FaultCode } from "./types.uts"
+
+
+//设备号
+const DeviceCode : string = '15294'
+
+/**
+ * 寄存器地址映射表
+ * 将业务名称映射到具体的 Modbus 寄存器地址
+ * 注意: Key-Value 仅为示例，请根据实际设备文档进行修改
+ */
+const registerMap : RegisterMap = {
+	DEVICE_NAME: 700, // 设备号起始地址
+	WATER_TEMPERATURE: 34, // 水温（单位：℃）
+	ROOM_TEMPERATURE: 36, // 室温（单位：℃）
+	WEIGHT: 46, // 重量（单位KG）
+
+	WASH_PHASE: 22,        // 当前洗涤阶段 (D22)
+	FAULT_REGISTER: 24,    // 故障码寄存器 (D24)
+	LIQUID_LEVEL_STATUS: 48 // 液体液位状态 (D48)
+}
+
+
+/** 洗涤阶段状态码 (D22) */
+const washPhase : WashPhase = {
+	PRE_STERILIZE: 5,                  			// 开门前消毒阶段
+	DOOR_OPEN_WAITING_FOR_PET: 10,     			// 开门阶段
+	ADAPTATION_WAIT: 15,               			// 适应等待阶段
+	PRE_WASH_RINSE: 20,                			// 清洗冲洗阶段
+	SHOWER_GEL_WASH: 30,               			// 沐浴露护理阶段
+	POST_SHAMPOO_RINSE: 40,            			// 清洗冲洗阶段
+	CONDITIONER_CARE: 50,              			// 护毛素护理阶段
+	FINAL_RINSE: 60,                   			// 清水清理冲洗阶段
+	DRYING: 70,                        			// 烘干阶段
+	DOOR_OPEN_WAITING_FOR_PICKUP: 80,  			// 烘干后开门阶段
+	POST_WASH_STERILIZE: 90,           			// 消毒阶段
+	FAULT: 100,                       			// 故障反馈阶段
+	POST_STERILIZE_STANDBY: 110,         		// 消毒后待机
+	POST_STERILIZE_DOOR_OPEN_REMINDER: 120, // 消毒后门未关提醒
+}
+
+/** 故障代码位标志 (D24) - 可以通过位运算组合 */
+const faultCode : FaultCode = {
+	NONE: 0,                           // 无故障
+	COLD_AIR_FAN: 1,                   // 冷风机故障
+	UV_LIGHT: 2,                       // 紫外线故障
+	BATHROOM_LIGHTING: 4,              // 浴室照明故障
+	DOOR_LOCK: 8,                      // 门锁故障
+	BOOSTER_PUMP: 16,                  // 增压泵故障
+	WATER_HEATER: 32,                  // 热水器故障
+	WARM_AIR_FAN_HALF_POWER: 64,       // 暖风机半功率故障
+	WARM_AIR_FAN_FULL_POWER: 128,      // 暖风机全功率故障
+	EMERGENCY_STOP_PRESSED: 256,       // 急停被按下
+	LOW_BATTERY_ALARM: 512,            // 电池低报警
+}
+
+/** 液体液位状态 (D48) */
+const liquidLevelStatus : LiquidLevelStatus = {
+	NORMAL: 0,                               // 液位正常
+	DISINFECTANT_LOW: 10,                    // 消毒液低液位
+	SHOWER_GEL_LOW: 20,                      // 沐浴露低液位
+	CONDITIONER_LOW: 30,                     // 护毛素低液位
+	DISINFECTANT_AND_SHOWER_GEL_LOW: 40,     // 消毒液+沐浴露低液位
+	DISINFECTANT_AND_CONDITIONER_LOW: 50,    // 消毒液+护毛素低液位
+	SHOWER_GEL_AND_CONDITIONER_LOW: 60,    	 // 沐浴露+护毛素低液位
+	ALL_LOW: 70,                             // 消毒液+沐浴露+护毛素低液位
 }
 /**
- * Mock RS232Serial 插件类
- * 用于在没有硬件的情况下测试 SerialManager 逻辑
+ * Mock RS232Serial
+ * 真正模拟 Modbus RTU 从站（寄存器基于数字数组）
  */
 export class RS232Serial {
-	
+
 	private isOpened : boolean = false
-	private currentPort : string | null = null
 	private callback : ((data : string) => void) | null = null
 
-	/** 模拟系统可用的串口列表 */
-	public getDeviceList() : string[] {
-		return ["/dev/ttyS0"; "/dev/ttyS1", "/dev/ttyAMA0"]
+	/** 模拟 D 区寄存器（每个元素 = 1 个 16bit 寄存器） */
+	private registers : number[] = []
+
+	constructor() {
+		this.initRegisters()
 	}
 
-	/** 模拟打开串口 */
-	public open(options : any) : void {
-		let option = toNewObject<OpenOptions>(options)
-		if (option.port == "/dev/ttyAMA0") {
-			// 模拟一个永远打不开的端口
-			console.log(` [ serialMock ] --> 访问了坏端口${option.port}`)
+	/** 初始化寄存器并写入默认值 */
+	private initRegisters() {
+		// 1. 初始化所有寄存器为 0
+		for (let i = 0; i < 800; i++) {
+			this.registers.push(0)
 		}
-		this.isOpened = true
-		this.currentPort = option.port
-		console.log(` [ serialMock ] --> 串口已打开: ${this.currentPort}, 波特率: ${option.baudRate}`)
+
+		// 2. 写入特定的、有意义的默认值
+		// 这样配置非常清晰，一眼就能看出每个寄存器的初始状态
+		console.log('[ serialMock ] --> 正在初始化并写入默认寄存器值...')
+		this.writeRegister(registerMap.WATER_TEMPERATURE, 32.5);              // 设置默认水温 32.5°C
+		this.writeRegister(registerMap.ROOM_TEMPERATURE, 25);                 // 设置默认室温 25°C
+		this.writeRegister(registerMap.WEIGHT, 15);                           // 设置默认重量 15KG
+		this.writeRegister(registerMap.LIQUID_LEVEL_STATUS, liquidLevelStatus.NORMAL); // 设置默认液位为 "正常"
+		this.writeRegister(registerMap.FAULT_REGISTER, faultCode.NONE);       // 设置默认故障状态为 "无故障"
+		this.writeRegister(registerMap.WASH_PHASE, washPhase.POST_STERILIZE_STANDBY);		// 设置默认洗涤阶段为 "消毒后待机"
+
+		// 写入设备序列号 (地址 D700)
+		this.writeString(registerMap.DEVICE_NAME, DeviceCode)
+		console.log('[ serialMock ] --> 默认寄存器值写入成功')
 	}
 
-	/** 模拟发送数据 */
+	/**
+	 * 写入单个寄存器（16-bit）
+	 * @param address 寄存器地址
+	 * @param value 要写入的值
+	 */
+	private writeRegister(address : number, value : number) {
+		if (address >= 0 && address < this.registers.length) {
+			// console.log(`[ serialMock ] --> 写寄存器 D${address} = ${value}`)
+			this.registers[address] = value
+		} else {
+			console.warn(`[ serialMock ] --> 警告：尝试写入无效的寄存器地址 ${address}`)
+		}
+	}
+
+	/**
+	 * 写入字符串到寄存器
+	 * 两个字符占用一个寄存器
+	 * 存储格式: LowByte=Char0, HighByte=Char1
+	 * Modbus读取(BigEndian)表现为: Char1 Char0
+	 */
+	private writeString(address : number, str : string) {
+		let regIndex = 0
+		for (let i = 0; i < str.length; i += 2) {
+			const char0 = (str.charCodeAt(i) ?? 0) & 0xFF
+			const char1 = (i + 1 < str.length) ? ((str.charCodeAt(i + 1) ?? 0) & 0xFF) : 0
+			const value = (char1 << 8) | char0
+			this.writeRegister(address + regIndex, value)
+			regIndex++
+		}
+	}
+
+	/** 模拟系统串口列表 */
+	public getDeviceList() : string[] {
+		return ["/dev/ttyS0", "/dev/ttyS1", "/dev/ttyAMA0"]
+	}
+
+	/** 打开串口 */
+	public open(options : any) : void {
+		const opt = toNewObject<OpenOptions>(options)
+		this.isOpened = true
+		console.log(`[ serialMock ] --> 串口已打开 ${opt.port}`)
+	}
+
+	/** 发送 HEX（Modbus RTU） */
 	public sendHex(hex : string) : void {
 		if (!this.isOpened) {
 			throw new Error("Serial port not opened")
 		}
-		console.log(` [ serialMock ] --> 发送数据到 ${this.currentPort}: ${hex}`)
 
-		// 模拟 Modbus 响应逻辑
-		// 如果发送的是 SerialManager 默认的测试帧，则异步回传一个成功的响应
-		if (hex === "010302BC000A0591") {
-			this.simulateModbusResponse()
+		// console.log(`[ serialMock ] --> TX ${hex}`)
+
+		const bytes = this.hexToBytes(hex)
+		const fc = bytes[1]
+
+		// 路由功能码
+		if (fc === 0x03) {
+			this.handleReadHolding(bytes)
+		} else if (fc === 0x06) {
+			this.handleWriteSingle(bytes)
+		} else if (fc === 0x10) {
+			this.handleWriteMultiple(bytes)
 		} else {
-			this.sendMessage(hex)
+			console.warn(`[ serialMock ] --> 不支持的功能码 ${fc}`)
 		}
 	}
-	
-	private sendMessage(msg : string) {
-		setTimeout(() => {
-			if (this.callback != null) {
-				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
-				// 假设响应 01 03 04 ...
-				this.callback(msg)
-			}
-		}, 10)
-	}
-	
-	/** 模拟 Modbus RTU 设备返回数据 (带 CRC 校验) */
-	private simulateModbusResponse() {
-		// 模拟 150ms 后返回数据（模拟硬件延迟）
-		setTimeout(() => {
-			if (this.callback != null) {
-				// 这是一个合法的 Modbus 响应示例（包含正确的 CRC16）
-				// 假设响应 01 03 04 ...
-				const mockData = "0103140000000000000000000000000000000000000000A367"
-				console.log(` [ serialMock ] --> 收到来自 ${this.currentPort} 的响应: ${mockData}`)
-				this.callback(mockData)
-			}
-		}, 150)
-	}
-	
-	/** 模拟数据订阅 */
+
+	/** 订阅数据 */
 	public subscribe(type : string, cb : (data : string) => void) : void {
-		if (type === 'HEX') {
+		if (type === "HEX") {
 			this.callback = cb
 		}
 	}
 
-	/** 模拟关闭串口 */
+	/** 关闭串口 */
 	public close() : void {
-		console.log(` [ serialMock ] --> 串口已关闭: ${this.currentPort}`)
 		this.isOpened = false
-		this.currentPort = null
 		this.callback = null
+	}
+
+	// ------------------------------------------------------------------
+	// Modbus 功能实现
+	// ------------------------------------------------------------------
+
+	/** 03 读保持寄存器 */
+	private handleReadHolding(req : number[]) {
+		const slave = req[0]
+		const start = (req[2] << 8) | req[3]
+		const count = (req[4] << 8) | req[5]
+
+		const payload : number[] = []
+
+		for (let i = 0; i < count; i++) {
+			const value = this.registers[start + i] ?? 0
+			payload.push((value >> 8) & 0xFF) // 高位
+			payload.push(value & 0xFF)        // 低位
+		}
+
+		const res : number[] = [
+			slave,
+			0x03,
+			payload.length,
+			...payload
+		]
+
+		this.appendAndSend(res)
+	}
+
+	/** 06 写单个保持寄存器 */
+	private handleWriteSingle(req : number[]) {
+		const slave = req[0]
+		const address = (req[2] << 8) | req[3]
+		const value = (req[4] << 8) | req[5]
+
+		this.writeRegister(address, value)
+
+		// 06 的响应 = 原样回显请求（含 CRC）
+		const res : number[] = [
+			slave,
+			0x06,
+			req[2],
+			req[3],
+			req[4],
+			req[5]
+		]
+
+		this.appendAndSend(res)
+	}
+
+	/** 10 写多个寄存器 */
+	private handleWriteMultiple(req : number[]) {
+		const slave = req[0]
+		const start = (req[2] << 8) | req[3]
+		const count = (req[4] << 8) | req[5]
+
+		let offset = 7
+		for (let i = 0; i < count; i++) {
+			const hi = req[offset++]
+			const lo = req[offset++]
+			const value = (hi << 8) | lo
+			this.writeRegister(start + i, value) // 使用辅助函数写入
+		}
+
+		// 写成功响应
+		const res : number[] = [
+			slave,
+			0x10,
+			(req[2]),
+			(req[3]),
+			(req[4]),
+			(req[5])
+		]
+
+		this.appendAndSend(res)
+	}
+
+	// ------------------------------------------------------------------
+	// 工具方法
+	// ------------------------------------------------------------------
+
+	private appendAndSend(bytes : number[]) {
+		const crc = this.calcCRC(bytes)
+		bytes.push(crc & 0xff, (crc >> 8) & 0xff)
+
+		const hex = this.bytesToHex(bytes)
+
+		setTimeout(() => {
+			// console.log(`[ serialMock ] --> RX ${hex}`)
+			if (this.callback != null) {
+				this.callback(hex)
+			}
+		}, 10)
+	}
+
+	private hexToBytes(hex : string) : number[] {
+		const arr : number[] = []
+		for (let i = 0; i < hex.length; i += 2) {
+			const sub = hex.substring(i, i + 2)
+			arr.push(parseInt(sub, 16))
+		}
+		return arr
+	}
+
+	private bytesToHex(bytes : number[]) : string {
+		return bytes.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase()
+	}
+
+	/** CRC16-Modbus */
+	private calcCRC(data : number[]) : number {
+		let crc = 0xFFFF
+		for (let b of data) {
+			crc ^= b
+			for (let i = 0; i < 8; i++) {
+				if ((crc & 1) == 1) crc = (crc >> 1) ^ 0xA001
+				else crc >>= 1
+			}
+		}
+		return crc
 	}
 }

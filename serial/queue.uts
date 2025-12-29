@@ -1,193 +1,195 @@
 import { SerialManager } from './serial.uts';
 
-type FeedbackCallback = (command: string, response: string, success: boolean) => void;
+type FeedbackCallback = (command : string, response : string, success : boolean) => void;
 
 /**
  * Modbus RTU 任务队列管理类
  */
 export class ModbusQueue {
-    private serialManager: SerialManager;
-    private list: string[] = [];         // 任务队列
-    private nowTask: string = '';        // 当前执行命令
-    private waiting: boolean = false;    // 是否在等待串口返回命令
+	private serialManager : SerialManager;
+	private list : string[] = [];         // 任务队列
+	private nowTask : string = '';        // 当前执行命令
+	private waiting : boolean = false;    // 是否在等待串口返回命令
 
-    private teskTimeout: number | null = null; // 超时定时器 ID
-    private retryCount: number = 0;      // 当前任务重试次数
-    private errorNum: number = 0;        // 连续任务失败计数
-    private abnormal: number = 0;        // 连续异常计数
+	private teskTimeout : number | null = null; // 超时定时器 ID
+	private retryCount : number = 0;      // 当前任务重试次数
+	private errorNum : number = 0;        // 连续任务失败计数
+	private abnormal : number = 0;        // 连续异常计数
 
-    private _serialFeedback: FeedbackCallback; // 外部回调
+	private _serialFeedback : FeedbackCallback; // 外部回调
 
-    constructor( serialManager:SerialManager,feedbackCallback: FeedbackCallback = () => {}) {
-        this.serialManager = serialManager;
-        this._serialFeedback = feedbackCallback;
-    }
+	constructor(serialManager : SerialManager, feedbackCallback : FeedbackCallback = () => { }) {
+		this.serialManager = serialManager;
+		this._serialFeedback = feedbackCallback;
+	}
 
-    /**
-     * 启动队列监听
-     * 必须在 serialManager.autoConnect() 成功后调用
-     */
-    public startListener() {
-        if (!this.serialManager.connecting) {
-            console.warn("SerialManager 未连接，无法启动队列监听");
-            return;
-        }
-        
-        // 订阅串口数据
-        this.serialManager.subscribe((res: string) => {
-            this.handleResponse(res);
-        });
-    }
+	/**
+	 * 启动队列监听
+	 * 必须在 serialManager.autoConnect() 成功后调用
+	 */
+	public startListener() {
+		if (!this.serialManager.connecting) {
+			console.warn("SerialManager 未连接，无法启动队列监听");
+			return;
+		}
 
-    /** 处理串口返回的有效数据（已通过 CRC 校验） */
-    private handleResponse(res: string) {
-        if (!this.waiting || this.nowTask == '') return;
+		// 订阅串口数据
+		this.serialManager.subscribe((res : string) => {
+			this.handleResponse(res);
+		});
+	}
 
-        // 成功收到回复
-        // 1. 清理超时和重试计数
-        this.clearTimeoutAndResetCounts();
+	/** 处理串口返回的有效数据（已通过 CRC 校验） */
+	private handleResponse(res : string) {
+		if (!this.waiting || this.nowTask == '') return;
 
-        // 2. 反馈成功
-        this._serialFeedback(this.nowTask, res, true);
-        
-        // 3. 移除当前任务（只有成功才移除）
-        this.list.shift();
-        
-        // 4. 重置状态
-        this.nowTask = '';
-        this.waiting = false;
-        
-        // 5. 遵守 RTU 静默间隔，稍后执行下一个
-        setTimeout(() => {
-            this.nextTask();
-        }, this.serialManager.intervalMs);
-    }
+		// 成功收到回复
+		// 1. 清理超时和重试计数
+		this.clearTimeoutAndResetCounts();
 
-    /** 清理定时器并重置计数 */
-    private clearTimeoutAndResetCounts() {
-        const tId = this.teskTimeout;
-        if (tId !== null) {
-            clearTimeout(tId);
-            this.teskTimeout = null;
-        }
-        this.retryCount = 0;
-        this.errorNum = 0;   // 只要成功一次，连续错误计数清零
-    }
+		// 2. 反馈成功
+		this._serialFeedback(this.nowTask, res, true);
 
-    /** 执行下一个任务或重试 */
-    private async nextTask(isRetry: boolean = false) {
-        // 如果串口断开了，暂停队列
-        if (!this.serialManager.connecting) {
-            this.waiting = false;
-            return;
-        }
+		// 3. 移除当前任务（只有成功才移除）
+		this.list.shift();
 
-        if (this.waiting) return; // 正在等待中
+		// 4. 重置状态
+		this.nowTask = '';
+		this.waiting = false;
 
-        if (this.list.length > 0) {
-            this.waiting = true;
-            this.nowTask = this.list[0]; // 始终取队首，不移除
+		// 5. 遵守 RTU 静默间隔，稍后执行下一个
+		setTimeout(() => {
+			this.nextTask();
+		}, this.serialManager.intervalMs);
+	}
 
-            if (!isRetry) {
-                this.retryCount = 0;
-            }
+	/** 清理定时器并重置计数 */
+	private clearTimeoutAndResetCounts() {
+		const tId = this.teskTimeout;
+		if (tId !== null) {
+			clearTimeout(tId);
+			this.teskTimeout = null;
+		}
+		this.retryCount = 0;
+		this.errorNum = 0;   // 只要成功一次，连续错误计数清零
+	}
 
-            // 1. 设置超时
-            this.teskTimeout = setTimeout(() => {
-                this.handleTimeout();
-            }, 1500); // 1.5秒超时
+	/** 执行下一个任务或重试 */
+	private async nextTask(isRetry : boolean = false) {
+		// 如果串口断开了，暂停队列
+		if (!this.serialManager.connecting) {
+			this.waiting = false;
+			return;
+		}
 
-            // 2. 发送指令
-            try {
-                // sendHex 内部已包含 intervalMs 延迟，防止总线冲突
-                await this.serialManager.sendHex(this.nowTask);
-            } catch (e) {
-                console.error("发送失败:", e);
-                // 发送失败直接触发超时逻辑
-                if (this.teskTimeout !== null) clearTimeout(this.teskTimeout!);
-                this.handleTimeout();
-            }
+		if (this.waiting) return; // 正在等待中
 
-        }
-    }
+		if (this.list.length > 0) {
+			this.waiting = true;
+			this.nowTask = this.list[0]; // 始终取队首，不移除
 
-    /** 处理超时逻辑 */
-    private handleTimeout() {
-        this.teskTimeout = null;
-        this.waiting = false;
+			if (!isRetry) {
+				this.retryCount = 0;
+			}
 
-        console.log(`任务超时: ${this.nowTask}`);
-        
-        // 反馈失败
-        this._serialFeedback(this.nowTask, '', false);
+			// 1. 设置超时
+			this.teskTimeout = setTimeout(() => {
+				this.handleTimeout();
+			}, 1500); // 1.5秒超时
 
-        this.retryCount++;
+			// 2. 发送指令
+			try {
+				// sendHex 内部已包含 intervalMs 延迟，防止总线冲突
+				await this.serialManager.sendHex(this.nowTask);
+			} catch (e) {
+				console.error("发送失败:", e);
+				// 发送失败直接触发超时逻辑
+				if (this.teskTimeout !== null) clearTimeout(this.teskTimeout!);
+				this.handleTimeout();
+			}
 
-        if (this.retryCount >= 3) {
-            // --- 放弃当前任务 ---
-            console.warn(`任务 ${this.nowTask} 重试 3 次失败，跳过`);
-            this.list.shift(); // 移除失败任务
-            this.retryCount = 0;
-            
-            // 累加连续错误计数
-            this.errorNum++;
-            if (this.errorNum >= 3) {
-                this.handleAbnormal();
-            }
-            
-            // 执行下一个
-            this.nextTask();
-        } else {
-            // --- 重试当前任务 ---
-            console.log(`准备重试第 ${this.retryCount} 次...`);
-            setTimeout(() => {
-                this.nextTask(true);
-            }, this.serialManager.intervalMs);
-        }
-    }
+		}
+	}
 
-    /** 处理严重异常 */
-    private handleAbnormal() {
-        this.errorNum = 0;
-        this.abnormal++;
-        console.error("=== 连续多次通信失败，可能设备掉线 ===");
-        
-        // 可以在这里触发重连逻辑，或者重启应用
-        if (this.abnormal >= 3) {
-            this.restartApp();
-        }
-    }
+	/** 处理超时逻辑 */
+	private handleTimeout() {
+		this.teskTimeout = null;
+		this.waiting = false;
 
-    private restartApp() {
-        console.error("达到重启阈值，正在重启应用...");
-    }
+		console.log(`任务超时: ${this.nowTask}`);
 
-    /** 添加任务 */
-    public push(hex: string) {
-        if (hex.length == 0) return;
-        this.list.push(hex);
-        // 如果当前空闲，立即触发
-        if (!this.waiting) {
-            this.nextTask();
-        }
-    }
-    
-    /** 批量添加任务 */
-    public pushBatch(hexList: string[]) {
-        this.list.push(...hexList);
-        if (!this.waiting) {
-            this.nextTask();
-        }
-    }
-    
-    /** 清空队列 */
-    public clear() {
-        this.list = [];
-        this.waiting = false;
-        const timerId = this.teskTimeout;
-        if (timerId != null) {
-            clearTimeout(timerId);
-            this.teskTimeout = null;
-        }
-    }
+		// 反馈失败
+		this._serialFeedback(this.nowTask, '', false);
+
+		this.retryCount++;
+
+		if (this.retryCount >= 3) {
+			// --- 放弃当前任务 ---
+			console.warn(`任务 ${this.nowTask} 重试 3 次失败，跳过`);
+			this.list.shift(); // 移除失败任务
+			this.retryCount = 0;
+
+			// 累加连续错误计数
+			this.errorNum++;
+			if (this.errorNum >= 3) {
+				this.handleAbnormal();
+			}
+
+			// 执行下一个
+			this.nextTask();
+		} else {
+			// --- 重试当前任务 ---
+			console.log(`准备重试第 ${this.retryCount} 次...`);
+			setTimeout(() => {
+				this.nextTask(true);
+			}, this.serialManager.intervalMs);
+		}
+	}
+
+	/** 处理严重异常 */
+	private handleAbnormal() {
+		this.errorNum = 0;
+		this.abnormal++;
+		console.error("=== 连续多次通信失败，可能设备掉线 ===");
+
+		// 可以在这里触发重连逻辑，或者重启应用
+		if (this.abnormal >= 3) {
+			this.restartApp();
+		}
+	}
+
+	private restartApp() {
+		console.error("达到重启阈值，正在重启应用...");
+	}
+
+	/** 添加任务 */
+	public push(hex : string) {
+		if (this.serialManager.connecting) {
+			if (hex.length == 0) return;
+			this.list.push(hex);
+			// 如果当前空闲，立即触发
+			if (!this.waiting) {
+				this.nextTask();
+			}
+		}
+	}
+
+	/** 批量添加任务 */
+	public pushBatch(hexList : string[]) {
+		this.list.push(...hexList);
+		if (!this.waiting) {
+			this.nextTask();
+		}
+	}
+
+	/** 清空队列 */
+	public clear() {
+		this.list = [];
+		this.waiting = false;
+		const timerId = this.teskTimeout;
+		if (timerId != null) {
+			clearTimeout(timerId);
+			this.teskTimeout = null;
+		}
+	}
 }

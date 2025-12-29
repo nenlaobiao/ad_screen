@@ -3,64 +3,103 @@
 	 * 测试demo
 	 */
 	import { State } from "./types.uts"
-	// #ifdef APP-ANDROID
 	import { SerialManager } from "@/serial/serial.uts"
 	import { ModbusQueue } from "@/serial/queue.uts"
+	import { parseModbusString } from "@/serial/utils.uts"
+	import { getTimeHMSMs } from "@/utils/tools.uts"
+	
 	import type { TempObject } from '@/api/types/tempTypes.uts'
 	import type { ResponseData } from '@/utils/request.uts';
-	// import { getTemp } from "@/api/test.uts"
-	const serial = new SerialManager()
-	const queue = new ModbusQueue(serial,(hex,res,status)=>{
-		console.log('ModbusQueue',hex,res,status)
-		
-		// 使用isOpen来判断连接状态
+	
+	const state = reactive<State>({
+		isOpen: false,
+		logs:[],
+		scrollViewId:'',
 	})
-	// #endif
-	const props = defineProps({
-		progress: {
-			type: String,
-			default: ''
+	let analyzeHEX : (hex : string,res:string) => void = () => {}
+	const serial = new SerialManager()
+	const queue = new ModbusQueue(serial, (hex, res, status) => {
+		console.log('ModbusQueue', hex, res, status)
+		if (status) {
+			analyzeHEX(hex,res)
 		}
 	})
-	const state = reactive<State>({
-		isOpen:false,
-	})
-	
-	onLoad( ()=>{
+	onLoad(() => {
 		// getTemp().then((res:ResponseData<TempObject>)=>{
 		// 	console.log('getTemp',res)
 		// })
 	})
-	
-	// #ifdef APP-ANDROID
-	async function autoConnect(){
+
+	analyzeHEX = (hex : string,res:string) : void => {
+		
+		state.logs.push(`发 --> ${hex}`)
+		state.logs.push(`收 <-- ${res}`)
+		let line = `----------${getTimeHMSMs()}----------`
+		state.logs.push(line)
+		state.scrollViewId = `${line}-${state.logs.length - 1}`
+		
+		if (hex == '010302BC000A0591') {
+			let deviceName = parseModbusString(res)
+			console.log('deviceName', deviceName)
+		}
+	}
+	async function autoConnect() {
 		await serial.autoConnect()
-		if(serial.connecting){
+		if (serial.connecting) {
 			queue.startListener()
 		}
 	}
-	function close(){
+
+
+	function close() {
 		serial.close()
 		queue.clear()
 	}
-	function sendHex(){
+	function readWash(){
+		queue.push('010300100001A408')
+	}
+	function setWash(val:number){
+		if(val == 1)queue.push('01060010000149CF')
+		if(val == 2)queue.push('01060010000209CE')
+		if(val == 3)queue.push('010600100003C80E')
+		
+	}
+	function getDeviceName() {
+		queue.push('010302BC000A0591')
+	}
+	function sendHex() {
 		queue.push('01030016000165CE')
 	}
-	function pushBatch(){
-		queue.pushBatch(['0103001A0001A5CD','0103001C000145CC','0103002E0001E403','0103001E0001E40C','01030020000185C0','0103002200012400','010300240001C401'])
+	function pushBatch() {
+		queue.pushBatch(['0103001A0001A5CD', '0103001C000145CC', '0103002E0001E403', '0103001E0001E40C', '01030020000185C0', '0103002200012400', '010300240001C401'])
 	}
-	// #endif
-
+	function closeLog(){
+		state.logs = []
+		state.scrollViewId = ''
+	}
 </script>
 
 <template>
 	<view class="demo">
-		<!-- #ifdef APP-ANDROID -->
-		<button class="demo-btn" @click="autoConnect">autoConnect</button>
-		<button class="demo-btn" @click="close">close</button>
-		<button class="demo-btn" @click="sendHex">sendHex</button>
-		<button class="demo-btn" @click="pushBatch">pushBatch</button>
-		<!-- #endif -->
+		<view class="demo-log">
+			<list-view class="demo-log-list" :scroll-into-view="state.scrollViewId" :scroll-with-animation="true">
+				<list-item v-for="(text,index) in state.logs" class="log-list-item" type='10' :id="`${text}-${index}`">
+					<text class="log-list-item-text" :selectable="true">{{text}}</text>
+				</list-item>
+			</list-view>
+			<button class="demo-btn" @click="closeLog">closeLog</button>
+		</view>
+		<view class="demo-btns">
+			<button class="demo-btn" @click="autoConnect">autoConnect</button>
+			<button class="demo-btn" @click="close">close</button>
+			<button class="demo-btn" @click="setWash(1)">setWash 1</button>
+			<button class="demo-btn" @click="setWash(2)">setWash 2</button>
+			<button class="demo-btn" @click="setWash(3)">setWash 3</button>
+			<button class="demo-btn" @click="readWash">readWash</button>
+			<button class="demo-btn" @click="getDeviceName">getDeviceName</button>
+			<button class="demo-btn" @click="sendHex">sendHex</button>
+			<button class="demo-btn" @click="pushBatch">pushBatch</button>
+		</view>
 	</view>
 </template>
 
@@ -72,16 +111,54 @@
 		border: 6rpx solid #fff;
 		position: relative;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: center;
 		justify-content: center;
 		background-color: skyblue;
-		.demo-btn{
-			font-size: 10rpx;
-			line-height: 20rpx;
-			height: 20rpx;
-			border-radius: 20rpx;
-			margin-bottom: 4rpx;
+		.demo-btns{
+			height: 100%;
+			display: flex;
+			flex-direction:column;
+			justify-content: center;
+			align-items: center;
+			flex:2;
+			.demo-btn {
+				font-size: 10rpx;
+				line-height: 20rpx;
+				height: 20rpx;
+				border-radius: 20rpx;
+				margin-bottom: 4rpx;
+			}
+		}
+		.demo-log{
+			display: flex;
+			flex-direction:column;
+			align-items: center;
+			flex:3;
+			height: 100%;
+			padding-top: 5rpx;
+			.demo-log-list{
+				flex:1;
+				width: 90%;
+				background:#fff;
+				border-radius:6rpx;
+				.log-list-item{
+					// height: 14rpx;
+					.log-list-item-text{
+						font-size: 10rpx;
+						text-align: center;
+						text-overflow: ellipsis;
+						white-space: nowrap;
+					}
+				}
+			}
+			.demo-btn {
+				font-size: 10rpx;
+				line-height: 20rpx;
+				height: 20rpx;
+				border-radius: 20rpx;
+				margin: 4rpx;
+			}
 		}
 	}
 </style>
