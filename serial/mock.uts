@@ -1,71 +1,10 @@
 import { toNewObject } from "@/utils/tools.uts"
-import type { WashPhase, OpenOptions, RegisterMap, LiquidLevelStatus, FaultCode } from "./types.uts"
-
+import { RegisterMap, WashPhase, LiquidLevelStatus, FaultCode } from "./types.uts" 
+import type { OpenOptions } from "./types.uts"
 
 //设备号
 const DeviceCode : string = '15294'
 
-/**
- * 寄存器地址映射表
- * 将业务名称映射到具体的 Modbus 寄存器地址
- * 注意: Key-Value 仅为示例，请根据实际设备文档进行修改
- */
-const registerMap : RegisterMap = {
-	DEVICE_NAME: 700, // 设备号起始地址
-	WATER_TEMPERATURE: 34, // 水温（单位：℃）
-	ROOM_TEMPERATURE: 36, // 室温（单位：℃）
-	WEIGHT: 46, // 重量（单位KG）
-
-	WASH_PHASE: 22,        // 当前洗涤阶段 (D22)
-	FAULT_REGISTER: 24,    // 故障码寄存器 (D24)
-	LIQUID_LEVEL_STATUS: 48 // 液体液位状态 (D48)
-}
-
-
-/** 洗涤阶段状态码 (D22) */
-const washPhase : WashPhase = {
-	PRE_STERILIZE: 5,                  			// 开门前消毒阶段
-	DOOR_OPEN_WAITING_FOR_PET: 10,     			// 开门阶段
-	ADAPTATION_WAIT: 15,               			// 适应等待阶段
-	PRE_WASH_RINSE: 20,                			// 清洗冲洗阶段
-	SHOWER_GEL_WASH: 30,               			// 沐浴露护理阶段
-	POST_SHAMPOO_RINSE: 40,            			// 清洗冲洗阶段
-	CONDITIONER_CARE: 50,              			// 护毛素护理阶段
-	FINAL_RINSE: 60,                   			// 清水清理冲洗阶段
-	DRYING: 70,                        			// 烘干阶段
-	DOOR_OPEN_WAITING_FOR_PICKUP: 80,  			// 烘干后开门阶段
-	POST_WASH_STERILIZE: 90,           			// 消毒阶段
-	FAULT: 100,                       			// 故障反馈阶段
-	POST_STERILIZE_STANDBY: 110,         		// 消毒后待机
-	POST_STERILIZE_DOOR_OPEN_REMINDER: 120, // 消毒后门未关提醒
-}
-
-/** 故障代码位标志 (D24) - 可以通过位运算组合 */
-const faultCode : FaultCode = {
-	NONE: 0,                           // 无故障
-	COLD_AIR_FAN: 1,                   // 冷风机故障
-	UV_LIGHT: 2,                       // 紫外线故障
-	BATHROOM_LIGHTING: 4,              // 浴室照明故障
-	DOOR_LOCK: 8,                      // 门锁故障
-	BOOSTER_PUMP: 16,                  // 增压泵故障
-	WATER_HEATER: 32,                  // 热水器故障
-	WARM_AIR_FAN_HALF_POWER: 64,       // 暖风机半功率故障
-	WARM_AIR_FAN_FULL_POWER: 128,      // 暖风机全功率故障
-	EMERGENCY_STOP_PRESSED: 256,       // 急停被按下
-	LOW_BATTERY_ALARM: 512,            // 电池低报警
-}
-
-/** 液体液位状态 (D48) */
-const liquidLevelStatus : LiquidLevelStatus = {
-	NORMAL: 0,                               // 液位正常
-	DISINFECTANT_LOW: 10,                    // 消毒液低液位
-	SHOWER_GEL_LOW: 20,                      // 沐浴露低液位
-	CONDITIONER_LOW: 30,                     // 护毛素低液位
-	DISINFECTANT_AND_SHOWER_GEL_LOW: 40,     // 消毒液+沐浴露低液位
-	DISINFECTANT_AND_CONDITIONER_LOW: 50,    // 消毒液+护毛素低液位
-	SHOWER_GEL_AND_CONDITIONER_LOW: 60,    	 // 沐浴露+护毛素低液位
-	ALL_LOW: 70,                             // 消毒液+沐浴露+护毛素低液位
-}
 /**
  * Mock RS232Serial
  * 真正模拟 Modbus RTU 从站（寄存器基于数字数组）
@@ -92,15 +31,15 @@ export class RS232Serial {
 		// 2. 写入特定的、有意义的默认值
 		// 这样配置非常清晰，一眼就能看出每个寄存器的初始状态
 		console.log('[ serialMock ] --> 正在初始化并写入默认寄存器值...')
-		this.writeRegister(registerMap.WATER_TEMPERATURE, 32.5);              // 设置默认水温 32.5°C
-		this.writeRegister(registerMap.ROOM_TEMPERATURE, 25);                 // 设置默认室温 25°C
-		this.writeRegister(registerMap.WEIGHT, 15);                           // 设置默认重量 15KG
-		this.writeRegister(registerMap.LIQUID_LEVEL_STATUS, liquidLevelStatus.NORMAL); // 设置默认液位为 "正常"
-		this.writeRegister(registerMap.FAULT_REGISTER, faultCode.NONE);       // 设置默认故障状态为 "无故障"
-		this.writeRegister(registerMap.WASH_PHASE, washPhase.POST_STERILIZE_STANDBY);		// 设置默认洗涤阶段为 "消毒后待机"
+		this.writeRegister(RegisterMap.WATER_TEMPERATURE, 32.5);              // 设置默认水温 32.5°C
+		this.writeRegister(RegisterMap.ROOM_TEMPERATURE, 25);                 // 设置默认室温 25°C
+		this.writeRegister(RegisterMap.WEIGHT, 15);                           // 设置默认重量 15KG
+		this.writeRegister(RegisterMap.LIQUID_LEVEL_STATUS, LiquidLevelStatus.NORMAL); // 设置默认液位为 "正常"
+		this.writeRegister(RegisterMap.FAULT_REGISTER, FaultCode.NONE);       // 设置默认故障状态为 "无故障"
+		this.writeRegister(RegisterMap.WASH_PHASE, WashPhase.POST_STERILIZE_STANDBY);		// 设置默认洗涤阶段为 "消毒后待机"
 
 		// 写入设备序列号 (地址 D700)
-		this.writeString(registerMap.DEVICE_NAME, DeviceCode)
+		this.writeString(RegisterMap.DEVICE_NAME, DeviceCode)
 		console.log('[ serialMock ] --> 默认寄存器值写入成功')
 	}
 
