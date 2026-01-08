@@ -2,6 +2,7 @@
 import Build from 'android.os.Build';
 import WindowManager from 'android.view.WindowManager';
 import File from 'java.io.File';
+import View from 'android.view.View';
 import WindowInsets from 'android.view.WindowInsets';
 import WindowInsetsController from 'android.view.WindowInsetsController';
 import Color from 'android.graphics.Color';
@@ -12,47 +13,57 @@ import DataOutputStream from 'java.io.DataOutputStream';
 // #endif
 
 /**
- * 跨版本沉浸模式
+ * 全屏沉浸模式
  */
 export function setFullscreen(enable: boolean = true) {
     // #ifdef APP-ANDROID
     const activity = UTSAndroid.getUniActivity();
     if (activity == null) return;
     const window = activity.getWindow();
+    const decorView = window.getDecorView();
 
-    if (Build.VERSION.SDK_INT >= 30) {
-        // Android 11+ 使用 WindowInsetsController
-        const controller = window.getInsetsController();
-        if (controller != null) {
-            if (enable) {
-                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                window.setDecorFitsSystemWindows(false);
-                window.setNavigationBarColor(Color.TRANSPARENT);
-                window.setStatusBarColor(Color.TRANSPARENT);
-            } else {
-                controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_DEFAULT);
-                window.setDecorFitsSystemWindows(true);
-            }
-        }
-    } else {
-        // Android 10 及以下
-        const decorView = window.getDecorView();
+    activity.runOnUiThread(() => {
         if (enable) {
-            // 使用直接数值位运算 0x00001006 (SYSTEM_UI_FLAG_IMMERSIVE_STICKY | HIDE_NAVIGATION | FULLSCREEN)
-            // 这样写可以完美绕过 UTS 对 Deprecated 字段的拦截
-            const flags:Int = 2 | 4 | 256 | 512 | 1024 | 2048 | 4096; 
+            // 1. 【核心：针对 Android 8.1 的白边修复】
+            // 允许窗口延伸到屏幕范围之外（忽略导航栏占位）
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN);
+            
+            // 2. 强制设置透明背景，防止系统默认层出现白边
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(Color.TRANSPARENT);
+            window.setNavigationBarColor(Color.TRANSPARENT);
+
+            // 3. 经典的沉浸式 Flag 组合
+            // 使用 SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION 是消除白边的关键
+            let flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+
+            // @ts-ignore
             decorView.setSystemUiVisibility(flags);
-            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+            // 4. 适配 Android 11+ (API 30+)
+            if (Build.VERSION.SDK_INT >= 30) {
+                window.setDecorFitsSystemWindows(false);
+                const controller = window.getInsetsController();
+                if (controller != null) {
+                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                    controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                }
+            }
         } else {
-            decorView.setSystemUiVisibility(0);
-            window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            // 退出全屏恢复默认
+            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            // @ts-ignore
+            decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         }
-    }
+    });
     // #endif
 }
-
 /**
  * 执行 Root 命令
  * @param cmd 命令字符串

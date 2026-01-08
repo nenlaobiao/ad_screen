@@ -1,6 +1,5 @@
 /**
  * 引导 App 启动的逻辑
- * 广告机项目通常需要进入后自动全屏
  */
 export function launchAppOnBoot() {
     // #ifdef APP-ANDROID

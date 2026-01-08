@@ -1,5 +1,5 @@
 <script lang="uts">
-	import { launchAppOnBoot } from '@/utils/boot.uts' // 假设你放在这个路径
+	import { launchAppOnBoot } from '@/utils/boot.uts'
 	import {setFullscreen ,isDeviceRooted} from "@/utils/native.uts"
 	let firstBackTime = 0
 	export default {
@@ -11,7 +11,9 @@
 		},
 		onShow: function () {
 			console.log('App Show')
-			setFullscreen()
+			setTimeout(()=>{
+				setFullscreen(true)
+			},100)
 		},
 		onHide: function () {
 			console.log('App Hide')
