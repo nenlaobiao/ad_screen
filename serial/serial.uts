@@ -12,7 +12,7 @@ export class SerialManager {
 	private baud : number
 	// 存储 tryPort 的 resolve 函数，用于在数据订阅回调中触发成功
 	private currentResolve : ((ok : boolean) => void) | null = null
-	private testFrame : string
+	private testFrame : string 
 	private intervalMultiplier : number
 	private tryConnect : boolean // 正在尝试连接的标志
 	/** 命令最小间隔  */

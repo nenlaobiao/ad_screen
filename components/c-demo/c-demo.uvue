@@ -25,18 +25,12 @@
 		}
 	})
 	onLoad(() => {
-		// getTemp().then((res:ResponseData<TempObject>)=>{
-		// 	console.log('getTemp',res)
-		// })
 	})
 
 	analyzeHEX = (hex : string,res:string) : void => {
-		
-		state.logs.push(`发 --> ${hex}`)
-		state.logs.push(`收 <-- ${res}`)
-		let line = `----------${getTimeHMSMs()}----------`
-		state.logs.push(line)
-		state.scrollViewId = `${line}-${state.logs.length - 1}`
+		// let line = `----------${getTimeHMSMs()}----------`
+		// state.logs.push( `发 --> ${hex}`, `收 <-- ${res}`, line )
+		// state.scrollViewId = `${line}-${state.logs.length - 1}`
 		
 		if (hex == '010302BC000A0591') {
 			let deviceName = parseModbusString(res)

@@ -5,11 +5,11 @@
 	const props = defineProps({
 		cage: {
 			type: [Number, String],
-			default: 10
+			default: 10.1
 		},
 		water: {
 			type: [Number, String],
-			default: 20
+			default: 20.2
 		}
 	})
 </script>
@@ -17,24 +17,24 @@
 <template>
 	<view class="tempBox">
 		<image class="tempBox-item-icon" src="/static/icon/room.png" />
-		<text class="tempBox-item-text">室温：{{ cage }}℃</text>
+		<text class="tempBox-item-text">室温：{{ cage }} ℃</text>
 		<view class="line" />
 		<image class="tempBox-item-icon" src="/static/icon/water.png" />
-		<text class="tempBox-item-text">水温：{{ water }}℃</text>
+		<text class="tempBox-item-text">水温：{{ water }} ℃</text>
 	</view>
 </template>
 
 <style lang="scss">
 	.tempBox {
 		position: fixed;
-		right: 16rpx;
+		right: 20rpx;
 		top: 7rpx;
 		z-index: 25;
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		background-color: #c3e9fe;
-		width: 118rpx;
+		min-width: 120rpx;
 		height: 16rpx;
 		border-radius: 10rpx;
 		box-shadow: 1rpx 1rpx 4rpx 2rpx rgba(100, 100, 100, 0.15);
@@ -57,7 +57,7 @@
 		.tempBox-item-text {
 			flex:1;
 			margin-top: 1rpx;
-			font-weight: bold;
+			// font-weight: bold;
 			color: #2E87B5;
 			font-size: 7rpx;
 		}

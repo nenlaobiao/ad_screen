@@ -52,11 +52,9 @@ export class ModbusQueue {
 
 		// 3. 移除当前任务（只有成功才移除）
 		this.list.shift();
-
 		// 4. 重置状态
 		this.nowTask = '';
 		this.waiting = false;
-
 		// 5. 遵守 RTU 静默间隔，稍后执行下一个
 		setTimeout(() => {
 			this.nextTask();
@@ -134,7 +132,7 @@ export class ModbusQueue {
 			if (this.errorNum >= 3) {
 				this.handleAbnormal();
 			}
-
+			
 			// 执行下一个
 			this.nextTask();
 		} else {

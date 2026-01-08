@@ -109,7 +109,7 @@
 				<!-- 洗护进度 -->
 				<c-wash-progress v-if="false" />
 
-				<c-demo v-if="true" />
+				<c-demo v-if="false" />
 			</view>
 
 		</view>
