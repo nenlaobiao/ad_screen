@@ -19,102 +19,58 @@ export type OpenOptions = {
 	parity : number
 	flowCon : number
 }
-
-/**
- * 寄存器地址映射表
- * 将业务名称映射到具体的 Modbus 寄存器地址
- */
-export enum RegisterMap {
-	/** 设备号 */
-	DEVICE_NAME = 700;
-	/** 水温（单位：℃） */
-	WATER_TEMPERATURE = 34;
-	/** 室温（单位：℃） */
-	ROOM_TEMPERATURE = 36;
-	/** 重量（单位KG） */
-	WEIGHT = 46;
-	/** 当前洗涤阶段 */
-	WASH_PHASE = 22;
-	/** 故障码寄存器 */
-	FAULT_REGISTER = 24;
-	/** 液体液位状态 */
-	LIQUID_LEVEL_STATUS = 48;
+/** 寄存器地址 */
+export type RegisterMap = {
+	DEVICE_NAME : number; // 设备号
+	WATER_TEMPERATURE : number; // 水温（单位：℃）
+	ROOM_TEMPERATURE : number; // 室温（单位：℃）
+	WEIGHT : number; // 重量（单位KG）
+	WASH_PHASE : number;        // 当前洗涤阶段 (D22)
+	FAULT_REGISTER : number;    // 故障码寄存器 (D24)
+	LIQUID_LEVEL_STATUS : number; // 液体液位状态 (D48)
 }
 
 /** 洗涤阶段状态码 (D22) */
-export enum WashPhase {
-	/** 开门前消毒阶段 */
-	PRE_STERILIZE = 5;
-	/** 开门阶段 */
-	DOOR_OPEN_WAITING_FOR_PET = 10;
-	/** 适应等待阶段 */
-	ADAPTATION_WAIT = 15;
-	/** 清洗冲洗阶段 */
-	PRE_WASH_RINSE = 20;
-	/** 沐浴露护理阶段 */
-	SHOWER_GEL_WASH = 30;
-	/** 清洗冲洗阶段 */
-	POST_SHAMPOO_RINSE = 40;
-	/** 护毛素护理阶段 */
-	CONDITIONER_CARE = 50;
-	/** 清水清理冲洗阶段 */
-	FINAL_RINSE = 60;
-	/** 烘干阶段 */
-	DRYING = 70;
-	/** 烘干后开门阶段 */
-	DOOR_OPEN_WAITING_FOR_PICKUP = 80;
-	/** 消毒阶段 */
-	POST_WASH_STERILIZE = 90;
-	/** 故障反馈阶段 */
-	FAULT = 100;
-	/** 消毒后待机 */
-	POST_STERILIZE_STANDBY = 110;
-	/** 消毒后门未关提醒 */
-	POST_STERILIZE_DOOR_OPEN_REMINDER = 120;
+export type WashPhase = {
+	PRE_STERILIZE : number;                // 开门前消毒阶段
+	DOOR_OPEN_WAITING_FOR_PET : number;    // 开门阶段
+	ADAPTATION_WAIT : number;              // 适应等待阶段
+	PRE_WASH_RINSE : number;               // 清洗冲洗阶段
+	SHOWER_GEL_WASH : number;              // 沐浴露护理阶段
+	POST_SHAMPOO_RINSE : number;           // 清洗冲洗阶段
+	CONDITIONER_CARE : number;             // 护毛素护理阶段
+	FINAL_RINSE : number;                  // 清水清理冲洗阶段
+	DRYING : number;                       // 烘干阶段
+	DOOR_OPEN_WAITING_FOR_PICKUP : number; // 烘干后开门阶段
+	POST_WASH_STERILIZE : number;          // 消毒阶段
+	FAULT : number;                        // 故障反馈阶段
+	POST_STERILIZE_STANDBY : number;         // 消毒后待机
+	POST_STERILIZE_DOOR_OPEN_REMINDER : number; // 消毒后门未关提醒
 }
 
 /** 故障代码位标志 (D24) - 可以通过位运算组合 */
-export enum FaultCode {
-	/** 无故障 */
-	NONE = 0;
-	/** 冷风机故障 */
-	COLD_AIR_FAN = 1;
-	/** 紫外线故障 */
-	UV_LIGHT = 2;
-	/** 浴室照明故障 */
-	BATHROOM_LIGHTING = 4;
-	/** 门锁故障 */
-	DOOR_LOCK = 8;
-	/** 增压泵故障 */
-	BOOSTER_PUMP = 16;
-	/** 热水器故障 */
-	WATER_HEATER = 32;
-	/** 暖风机半功率故障 */
-	WARM_AIR_FAN_HALF_POWER = 64;
-	/** 暖风机全功率故障 */
-	WARM_AIR_FAN_FULL_POWER = 128;
-	/** 急停被按下 */
-	EMERGENCY_STOP_PRESSED = 256;
-	/** 电池低报警 */
-	LOW_BATTERY_ALARM = 512;            // 电池低报警
+export type FaultCode = {
+	NONE : number;                         // 无故障
+	COLD_AIR_FAN : number;                 // 冷风机故障
+	UV_LIGHT : number;                     // 紫外线故障
+	BATHROOM_LIGHTING : number;            // 浴室照明故障
+	DOOR_LOCK : number;                    // 门锁故障
+	BOOSTER_PUMP : number;                 // 增压泵故障
+	WATER_HEATER : number;                 // 热水器故障
+	WARM_AIR_FAN_HALF_POWER : number;      // 暖风机半功率故障
+	WARM_AIR_FAN_FULL_POWER : number;      // 暖风机全功率故障
+	EMERGENCY_STOP_PRESSED : number;       // 急停被按下
+	LOW_BATTERY_ALARM : number;            // 电池低报警
 }
 
 /** 液体液位状态 (D48) */
-export enum  LiquidLevelStatus {
-	/** 液位正常 */
-	NORMAL = 0;
-	/** 消毒液低液位 */
-	DISINFECTANT_LOW = 10;
-	/** 沐浴露低液位 */
-	SHOWER_GEL_LOW = 20;
-	/** 护毛素低液位 */
-	CONDITIONER_LOW = 30;
-	/** 消毒液+沐浴露低液位 */
-	DISINFECTANT_AND_SHOWER_GEL_LOW = 40;
-	/** 消毒液+护毛素低液位 */
-	DISINFECTANT_AND_CONDITIONER_LOW = 50;
-	/** 沐浴露+护毛素低液位 */
-	SHOWER_GEL_AND_CONDITIONER_LOW = 60;
-	/** 消毒液+沐浴露+护毛素低液位 */
-	ALL_LOW = 70;
+export type LiquidLevelStatus = {
+	NORMAL : number;                              // 液位正常
+	DISINFECTANT_LOW : number;                    // 消毒液低液位
+	SHOWER_GEL_LOW : number;                      // 沐浴露低液位
+	CONDITIONER_LOW : number;                     // 护毛素低液位
+	DISINFECTANT_AND_SHOWER_GEL_LOW : number;     // 消毒液+沐浴露低液位
+	DISINFECTANT_AND_CONDITIONER_LOW : number;    // 消毒液+护毛素低液位
+	SHOWER_GEL_AND_CONDITIONER_LOW : number;    // 沐浴露+护毛素低液位
+	ALL_LOW : number;                             // 消毒液+沐浴露+护毛素低液位
 }
