@@ -1,0 +1,10 @@
+export type DeviceData = {
+	cage:number,
+	water:number,
+	mode: 'dry' | 'basis' | 'enhance',
+	status: 110 | 120,
+}
+
+export type GlobalState = {
+  deviceData: DeviceData
+}

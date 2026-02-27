@@ -7,7 +7,7 @@
 	import { ModbusQueue } from "@/serial/queue.uts"
 	import { parseModbusString } from "@/serial/utils.uts"
 	import { getTimeHMSMs } from "@/utils/tools.uts"
-	
+	import {setCage} from "@/store/index.uts"
 	import type { TempObject } from '@/api/types/tempTypes.uts'
 	import type { ResponseData } from '@/utils/request.uts';
 	
@@ -93,6 +93,7 @@
 			<button class="demo-btn" @click="getDeviceName">getDeviceName</button>
 			<button class="demo-btn" @click="sendHex">sendHex</button>
 			<button class="demo-btn" @click="pushBatch">pushBatch</button>
+			<button class="demo-btn" @click="setCage(10)">setCage(10)</button>
 		</view>
 	</view>
 </template>

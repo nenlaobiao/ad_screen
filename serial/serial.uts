@@ -1,5 +1,5 @@
-// import { RS232Serial } from '@/uni_modules/shmily-rs232-serial';
-import { RS232Serial } from './mock.uts';
+import { RS232Serial } from '@/uni_modules/shmily-rs232-serial';
+// import { RS232Serial } from './mock.uts';
 import {checkCRC16} from "./utils.uts"
 import { delay } from "@/utils/tools.uts"
 

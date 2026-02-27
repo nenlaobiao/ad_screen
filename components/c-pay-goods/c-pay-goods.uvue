@@ -48,7 +48,7 @@
 	async function getGoodsInfoFn(ids : string) {
 		try {
 			console.log('加载商品推荐')
-			let res = await getGoodsInfo({ ids })
+			let res = await getGoodsInfo<Goods>({ ids })
 			if (res.error == 0) {
 				let goodsData = res.data as Goods[]
 				if (goodsData.length > 0) {
@@ -75,7 +75,7 @@
 	// 获取装修模板信息
 	async function getTemplateFn() {
 		try {
-			let res = await getTemplate({
+			let res = await getTemplate<TempObject>({
 				templateId:117
 			})
 			if (res.error == 0) {
@@ -130,7 +130,7 @@
 	async function getDeviceInfoFn() {
 		try {
 			console.log('加载套餐信息')
-			let res = await getDeviceInfo()
+			let res = await getDeviceInfo<DeviceInfo[]>()
 			if (res.error == 0) {
 				let data = toNewArray<DeviceInfo>(res.data)
 				state.petWashInfo = data

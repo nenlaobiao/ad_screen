@@ -1,26 +1,21 @@
 <script setup>
+	import {globalState} from "@/store/index.uts"
+	import type {DeviceData} from "@/store/types.uts"
 	/**
 	 * 右上角温度显示
 	 */
-	const props = defineProps({
-		cage: {
-			type: [Number, String],
-			default: 10.1
-		},
-		water: {
-			type: [Number, String],
-			default: 20.2
-		}
+	const deviceData = computed<DeviceData>(()=>{
+		return globalState.deviceData
 	})
 </script>
 
 <template>
 	<view class="tempBox">
 		<image class="tempBox-item-icon" src="/static/icon/room.png" />
-		<text class="tempBox-item-text">室温：{{ cage }} ℃</text>
+		<text class="tempBox-item-text">室温：{{ deviceData.cage }} ℃</text>
 		<view class="line" />
 		<image class="tempBox-item-icon" src="/static/icon/water.png" />
-		<text class="tempBox-item-text">水温：{{ water }} ℃</text>
+		<text class="tempBox-item-text">水温：{{ deviceData.water }} ℃</text>
 	</view>
 </template>
 
