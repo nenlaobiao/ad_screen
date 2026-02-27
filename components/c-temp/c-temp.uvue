@@ -1,10 +1,10 @@
 <script setup>
-	import {globalState} from "@/store/index.uts"
-	import type {DeviceData} from "@/store/types.uts"
+	import { globalState } from "@/store/index.uts"
+	import type { DeviceData } from "@/store/types.uts"
 	/**
 	 * 右上角温度显示
 	 */
-	const deviceData = computed<DeviceData>(()=>{
+	const deviceData = computed<DeviceData>(() => {
 		return globalState.deviceData
 	})
 </script>
@@ -42,7 +42,7 @@
 			background-color: rgba(35, 110, 153, 0.5);
 			margin: 0 6rpx;
 		}
-		
+
 		.tempBox-item-icon {
 			width: 7rpx;
 			height: 7rpx;
@@ -50,7 +50,7 @@
 		}
 
 		.tempBox-item-text {
-			flex:1;
+			flex: 1;
 			margin-top: 1rpx;
 			// font-weight: bold;
 			color: #2E87B5;

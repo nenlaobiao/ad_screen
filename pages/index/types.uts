@@ -6,7 +6,6 @@ export type AdItem = {
 	type : 'video' | 'image';
 }
 export type State = {
-	machineCode:string;
 	adList : AdItem[];
 
 }

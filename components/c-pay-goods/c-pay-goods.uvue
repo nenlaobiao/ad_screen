@@ -8,18 +8,13 @@
 	import { mpGoodsQrUrl } from "@/config.uts"
 	import { mpWashQrUrl } from "@/config.uts"
 	import { getQrUrl } from "@/utils/tools.uts"
+	import { globalState } from "@/store/index.uts"
 	
 	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import type { Goods } from '@/api/types/goodsTypes.uts'
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { State } from "./types.uts"
-	const props = defineProps({
-		machineCode: {
-			type: String,
-			default: () => ''
-		}
-	})
 	const emits = defineEmits<{
 		(e : "open", event : any) : void
 	}>()
@@ -105,7 +100,7 @@
 
 	const MPQRcode = computed(() => {
 		return getQrUrl(mpWashQrUrl, {
-			machineCode: props.machineCode,
+			machineCode: globalState.machineCode,
 			packageType: state.petWash?.batch_type ?? 2
 		})
 	})

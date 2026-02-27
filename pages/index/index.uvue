@@ -78,7 +78,6 @@
 		}
 	]
 	const state = reactive<State>({
-		machineCode: '15294',
 		adList: adData,
 	})
 
@@ -101,7 +100,7 @@
 			<view class="rightBox">
 
 				<!-- 套餐、商品 -->
-				<c-pay-goods :machineCode="state.machineCode" />
+				<c-pay-goods />
 
 				<!-- 设备状态 -->
 				<c-status-card v-if="false" />
@@ -109,7 +108,7 @@
 				<!-- 洗护进度 -->
 				<c-wash-progress v-if="false" />
 
-				<c-demo v-if="false" />
+				<c-demo v-if="true" />
 			</view>
 
 		</view>
