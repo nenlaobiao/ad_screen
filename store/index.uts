@@ -1,4 +1,4 @@
-import type { GlobalState, DeviceData } from "./types.uts"
+import type { GlobalState } from "./types.uts"
 
 export const globalState = reactive<GlobalState>({
 	deviceData: {
@@ -6,14 +6,16 @@ export const globalState = reactive<GlobalState>({
 		status: 110,
 		cage: 30.2,
 		water: 30.2,
-		petWeight:0,
-		countdownTime:0,
+		petWeight: 0,
+		countdownTime: 0,
 	},
-	machineCode:'15294',
-	order_id:'',
-	notConnected:false,
-	appVersion:'0.0.0',
-	updating:false,
+	machineCode: '15294',
+	order_id: '',
+	serviceStatus: false,
+	serialStatus: false,
+	appVersion: '0.0.0',
+	updating: false,
+	nowTime: Date.now()
 })
 export const setCage = (num : number) => {
 	globalState.deviceData.cage = num

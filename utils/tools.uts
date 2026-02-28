@@ -130,3 +130,23 @@ export function getTimeHMSMs(date: Date = new Date()): string {
 
 	return `${h}:${m}:${s}.${ms}`
 }
+
+/**
+ * 时间格式化函数
+ * @param {number} input  时间戳 / Date对象 / 可解析时间字符串
+ * @returns {string}
+ */
+export function formatDate(input : number) : string {
+  const date = new Date(input)
+
+  const pad = (n:number):string => n.toString().padStart(2, '0')
+
+  const yyyy = date.getFullYear()
+  const mm = pad(date.getMonth() + 1)
+  const dd = pad(date.getDate())
+  const hh = pad(date.getHours())
+  const MM = pad(date.getMinutes())
+  const ss = pad(date.getSeconds())
+
+  return `${yyyy}年${mm}月${dd}日 ${hh}:${MM}:${ss}`
+}

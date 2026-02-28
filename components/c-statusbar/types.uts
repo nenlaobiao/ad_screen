@@ -1,5 +1,0 @@
-export type StatusItem = {
-	name:string;
-	value: ()=>number|string;
-	unit?:string;
-}

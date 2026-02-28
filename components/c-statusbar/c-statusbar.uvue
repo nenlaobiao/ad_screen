@@ -2,48 +2,30 @@
 	/**
 	 * 底部状态栏
 	 */
-	import type { StatusItem } from "./types.uts"
-	const props = defineProps({
-		list: {
-			type: Array as PropType<StatusItem[]>,
-			default: () => {
-				const list : StatusItem[] = [
-					{
-						name: '当前时间',
-						value: () => '2025年8月27日22:32:10'
-					},
-					{
-						name: '服务连接状态',
-						value: () => "已连接"
-					},
-					{
-						name: '串口连接状态',
-						value: () => "已连接"
-					},
-					{
-						name: '版本号',
-						value: () => "3.0.0"
-					},
-					{
-						name: '宠物体重',
-						value: () => 10,
-						unit: 'kg'
-					},
-					{
-						name: '设备码',
-						value: () => 15294
-					},
-				]
-				return list
-			}
-		},
-	})
+	import { formatDate } from "@/utils/tools.uts"
+	import { globalState } from "@/store/index.uts"
+	const nowTime = computed<string>(() : string => formatDate(globalState.nowTime))
 </script>
 
 <template>
 	<view class="statusbar">
-		<text class="statusbar-text" v-for="item in list" :key="item.name">
-			{{`${item.name}：${item.value()}${item.unit ?? ''}`}}
+		<text class="statusbar-text">
+			当前时间：{{nowTime}}
+		</text>
+		<text class="statusbar-text">
+			服务连接状态：{{globalState.serviceStatus ? '已连接':'连接中'}}
+		</text>
+		<text class="statusbar-text">
+			串口连接状态：{{globalState.serialStatus ? '已连接':'连接中'}}
+		</text>
+		<text class="statusbar-text">
+			版本号：{{globalState.appVersion}}
+		</text>
+		<text class="statusbar-text">
+			宠物体重：{{globalState.deviceData.petWeight}}KG
+		</text>
+		<text class="statusbar-text">
+			设备码：{{globalState.machineCode}}
 		</text>
 	</view>
 </template>
