@@ -1,11 +1,12 @@
 import { SerialManager } from './serial.uts';
+import serialManager from './serial.uts';
 
 type FeedbackCallback = (command : string, response : string, success : boolean) => void;
 
 /**
  * Modbus RTU 任务队列管理类
  */
-export class ModbusQueue {
+class ModbusQueue {
 	private serialManager : SerialManager;
 	private list : string[] = [];         // 任务队列
 	private nowTask : string = '';        // 当前执行命令
@@ -18,7 +19,7 @@ export class ModbusQueue {
 
 	private _serialFeedback : FeedbackCallback; // 外部回调
 
-	constructor(serialManager : SerialManager, feedbackCallback : FeedbackCallback = () => { }) {
+	constructor( feedbackCallback : FeedbackCallback = () => { }) {
 		this.serialManager = serialManager;
 		this._serialFeedback = feedbackCallback;
 	}
@@ -65,7 +66,7 @@ export class ModbusQueue {
 	private clearTimeoutAndResetCounts() {
 		const tId = this.teskTimeout;
 		if (tId !== null) {
-			clearTimeout(tId);
+			clearTimeout(tId); 
 			this.teskTimeout = null;
 		}
 		this.retryCount = 0;
@@ -171,7 +172,6 @@ export class ModbusQueue {
 			}
 		}
 	}
-
 	/** 批量添加任务 */
 	public pushBatch(hexList : string[]) {
 		this.list.push(...hexList);
@@ -190,4 +190,14 @@ export class ModbusQueue {
 			this.teskTimeout = null;
 		}
 	}
+	
+	public registerCallback(feedbackCallback : FeedbackCallback = () => { }){
+		this._serialFeedback = feedbackCallback;
+	}
+	public cancelCallback(){
+		this._serialFeedback = ()=>{};
+	}
+	
 }
+
+export default new ModbusQueue()

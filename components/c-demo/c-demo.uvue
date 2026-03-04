@@ -3,13 +3,13 @@
 	 * 测试demo
 	 */
 	import { State } from "./types.uts"
-	import { SerialManager } from "@/serial/serial.uts"
-	import { ModbusQueue } from "@/serial/queue.uts"
+	import ModbusQueue from "@/serial/queue.uts"
 	import { parseModbusString } from "@/serial/utils.uts"
 	import { getTimeHMSMs } from "@/utils/tools.uts"
 	import { globalState } from "@/store/index.uts"
 	import type { TempObject } from '@/api/types/tempTypes.uts'
 	import type { ResponseData } from '@/utils/request.uts';
+	import Serial from '@/serial/serial.uts';
 	
 	const state = reactive<State>({
 		isOpen: false,
@@ -17,8 +17,7 @@
 		scrollViewId:'',
 	})
 	let analyzeHEX : (hex : string,res:string) => void = () => {}
-	const serial = new SerialManager()
-	const queue = new ModbusQueue(serial, (hex, res, status) => {
+	ModbusQueue.registerCallback((hex, res, status) => {
 		console.log('ModbusQueue', hex, res, status)
 		if (status) {
 			analyzeHEX(hex,res)
@@ -26,7 +25,9 @@
 	})
 	onLoad(() => {
 	})
-
+	onUnload(()=>{
+		ModbusQueue.cancelCallback()
+	})
 	analyzeHEX = (hex : string,res:string) : void => {
 		// let line = `----------${getTimeHMSMs()}----------`
 		// state.logs.push( `发 --> ${hex}`, `收 <-- ${res}`, line )
@@ -38,34 +39,34 @@
 		}
 	}
 	async function autoConnect() {
-		await serial.autoConnect()
-		if (serial.connecting) {
-			queue.startListener()
+		await Serial.autoConnect()
+		if (Serial.connecting) {
+			ModbusQueue.startListener()
 		}
 	}
 
 
 	function close() {
-		serial.close()
-		queue.clear()
+		ModbusQueue.clear()
+		Serial.close()
 	}
 	function readWash(){
-		queue.push('010300100001A408')
+		ModbusQueue.push('010300100001A408')
 	}
 	function setWash(val:number){
-		if(val == 1)queue.push('01060010000149CF')
-		if(val == 2)queue.push('01060010000209CE')
-		if(val == 3)queue.push('010600100003C80E')
+		if(val == 1)ModbusQueue.push('01060010000149CF')
+		if(val == 2)ModbusQueue.push('01060010000209CE')
+		if(val == 3)ModbusQueue.push('010600100003C80E')
 		
 	}
 	function getDeviceName() {
-		queue.push('010302BC000A0591')
+		ModbusQueue.push('010302BC000A0591')
 	}
 	function sendHex() {
-		queue.push('01030016000165CE')
+		ModbusQueue.push('01030016000165CE')
 	}
 	function pushBatch() {
-		queue.pushBatch(['0103001A0001A5CD', '0103001C000145CC', '0103002E0001E403', '0103001E0001E40C', '01030020000185C0', '0103002200012400', '010300240001C401'])
+		ModbusQueue.pushBatch(['0103001A0001A5CD', '0103001C000145CC', '0103002E0001E403', '0103001E0001E40C', '01030020000185C0', '0103002200012400', '010300240001C401'])
 	}
 	function closeLog(){
 		state.logs = []

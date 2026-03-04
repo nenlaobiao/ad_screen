@@ -1,0 +1,11 @@
+import { globalState } from "@/store/index.uts"
+
+
+class Controller{
+	
+	constructor(){
+		
+	}
+	
+}
+export default new Controller()

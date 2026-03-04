@@ -20,7 +20,7 @@ export class SerialManager {
 	/**  连接状态 */
 	public connecting : boolean
 
-	constructor(baud : number = 19200, testFrame : string = "010302BC000A0591", intervalMultiplier : number = 4) {
+	constructor(baud : number = 19200, testFrame : string = "010302BC000A0591", intervalMultiplier : number = 3) {
 		this.serialPort = new RS232Serial()
 		this.baud = baud
 		this.testFrame = testFrame
@@ -33,8 +33,8 @@ export class SerialManager {
 
 	/** 计算 RTU 静默间隔毫秒 */
 	public calcIntervalMs() : number {
-		const tMs = 11 / this.baud * 1000   // 1T 单位毫秒
-		return Math.ceil(tMs * this.intervalMultiplier)
+		const tMs = 10 / this.baud   // 1T 单位毫秒
+		return Math.ceil(tMs + this.intervalMultiplier)
 	}
 
 	/** 自动扫描串口并尝试连接 Modbus PLC */
@@ -225,3 +225,5 @@ export class SerialManager {
 		return this.serialPort.getDeviceList()
 	}
 }
+
+export default new SerialManager()

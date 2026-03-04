@@ -19,7 +19,7 @@
 			console.log('App Hide')
 		},
 		// #ifdef APP-ANDROID
-		onLastPageBackPress: function () {
+		onLastPageBackPress : function () {
 			console.log('App LastPageBackPress')
 			if (firstBackTime == 0) {
 				uni.showToast({
@@ -43,12 +43,5 @@
 </script>
 
 <style>
-	/*每个页面公共css */
-	.uni-row {
-		flex-direction: row;
-	}
 
-	.uni-column {
-		flex-direction: column;
-	}
 </style>
