@@ -1,11 +1,78 @@
 import { globalState } from "@/store/index.uts"
+import modbusQueue from './queue.uts'
+import serialManager from './serial.uts'
 
-
-class Controller{
+/**
+ * 串口总控制模块
+ * 负责对接 UI 交互与底层的串口队列
+ */
+class Controller {
 	
-	constructor(){
+	constructor() {}
+
+	/**
+	 * 初始化：建议在 App.uvue 的 onLaunch 或 onShow 中调用
+	 */
+	init() {
+		console.log("Serial Controller Init")
 		
+		// 1. 注册队列的回调，处理底层返回的数据
+		modbusQueue.registerCallback((cmd : string, res : string, success : boolean) => {
+			this.handleResponse(cmd, res, success)
+		})
+
+		// 2. 连接串口
+		serialManager.autoConnect()
+
+		// 3. 启动队列监听
+		// 开启轮询检测连接状态，一旦连接成功立即启动队列消费
+		this.checkConnectionAndStart()
+	}
+
+	/**
+	 * 轮询检查串口连接状态，连接成功后启动队列
+	 */
+	private checkConnectionAndStart() {
+		if (serialManager.connecting) {
+			modbusQueue.startListener()
+			console.log("Serial Queue Listener Started")
+		} else {
+			// 未连接则每秒检查一次，直到连接成功
+			setTimeout(() => {   
+				this.checkConnectionAndStart()
+			}, 1000)
+		}
+	}
+
+	/**
+	 * 销毁/清理：建议在 App.uvue 的 onExit 调用（如果支持）
+	 */
+	destroy() {
+		modbusQueue.clear()
+		modbusQueue.cancelCallback()
+		// 如果需要完全断开串口，可调用 serialManager.close()
 	}
 	
+	/**
+	 * 统一处理业务逻辑：将 Hex 数据解析为业务状态
+	 */
+	private handleResponse(cmd : string, res : string, success : boolean) {
+		if (!success) {
+			console.warn(`指令执行失败或超时: ${cmd}`)
+			return
+		}
+
+		// console.log(`指令成功: ${cmd} -> 响应: ${res}`)
+
+		// TODO: 在这里根据 cmd 或 res 更新 globalState
+		// 例如：globalState.deviceStatus = parseStatus(res)
+	}
+
+	/**
+	 * 发送指令 (UI调用入口)
+	 */
+	send(hex : string) {
+		modbusQueue.push(hex)
+	}
 }
 export default new Controller()

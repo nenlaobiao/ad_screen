@@ -1,0 +1,102 @@
+<script setup>
+	/**
+	 * 测试demo
+	 */
+	import { State } from "./types.uts"
+	import ModbusQueue from "@/serial/queue.uts"
+	import { parseModbusString } from "@/serial/utils.uts"
+	import { getTimeHMSMs } from "@/utils/tools.uts"
+	import { globalState } from "@/store/index.uts"
+	import type { TempObject } from '@/api/types/tempTypes.uts'
+	import type { ResponseData } from '@/utils/request.uts';
+	import Serial from '@/serial/serial.uts';
+	
+	const emits = defineEmits(['set'])
+	let analyzeHEX : (hex : string,res:string) => void = () => {}
+	const state = reactive<State>({
+		isOpen: false,
+		logs:[],
+		scrollViewId:'',
+	})
+
+	onLoad(() => {
+	})
+	onUnload(()=>{
+		ModbusQueue.cancelCallback()
+	})
+	analyzeHEX = (hex : string,res:string) : void => {
+		let line = `----------${getTimeHMSMs()}-demo-a----------`
+		state.logs.push( `发 --> ${hex}`, `收 <-- ${res}`, line )
+		
+		if (hex == '010302BC000A0591') {
+			let deviceName = parseModbusString(res)
+			console.log('deviceName-demo-a', deviceName)
+		}
+	}
+	async function autoConnect() {
+		await Serial.autoConnect()
+		if (Serial.connecting) {
+			ModbusQueue.startListener()
+		}
+	}
+	function registerCallback(){
+		ModbusQueue.registerCallback((hex, res, status) => {
+			console.log('ModbusQueue-demo-a', hex, res, status)
+			if (status) {
+				analyzeHEX(hex,res)
+			}
+		})
+	}
+	function getDeviceName() {
+		ModbusQueue.push('010302BC000A0591')
+	}
+	function sendHex() {
+		ModbusQueue.push('01030016000165CE')
+	}
+	function setdemo(){
+		emits('set')
+	}
+</script>
+
+<template>
+	<view class="demo">
+		我是demo-b
+		<view class="demo-btns">
+			<button class="demo-btn" @click="setdemo">切换demo-a</button>
+			<button class="demo-btn" @click="autoConnect">autoConnect</button>
+			<button class="demo-btn" @click="registerCallback">registerCallback</button>
+			<button class="demo-btn" @click="getDeviceName">getDeviceName</button>
+			<button class="demo-btn" @click="sendHex">sendHex</button>
+		</view>
+	</view>
+</template>
+
+<style lang="scss">
+	.demo {
+		height: 100%;
+		width: 100%;
+		border-radius: 18rpx;
+		border: 6rpx solid #fff;
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		background-color: skyblue;
+		.demo-btns{
+			height: 100%;
+			display: flex;
+			flex-direction:column;
+			justify-content: center;
+			align-items: center;
+			flex:2;
+			.demo-btn {
+				font-size: 10rpx;
+				line-height: 20rpx;
+				height: 20rpx;
+				border-radius: 20rpx;
+				margin-bottom: 4rpx;
+			}
+		}
+	}
+</style>

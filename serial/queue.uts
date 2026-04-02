@@ -6,7 +6,7 @@ type FeedbackCallback = (command : string, response : string, success : boolean)
 /**
  * Modbus RTU 任务队列管理类
  */
-class ModbusQueue {
+export class ModbusQueue {
 	private serialManager : SerialManager;
 	private list : string[] = [];         // 任务队列
 	private nowTask : string = '';        // 当前执行命令

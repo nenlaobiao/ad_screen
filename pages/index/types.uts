@@ -7,7 +7,7 @@ export type AdItem = {
 }
 export type State = {
 	adList : AdItem[];
-
+	showDemo:boolean
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess | null | false
 

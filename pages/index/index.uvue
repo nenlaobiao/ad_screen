@@ -79,6 +79,7 @@
 	]
 	const state = reactive<State>({
 		adList: adData,
+		showDemo:false
 	})
 
 	onLoad(() => {
@@ -108,7 +109,9 @@
 				<!-- 洗护进度 -->
 				<c-wash-progress v-if="false" />
 
-				<c-demo v-if="true" />
+				<!-- <c-demo v-if="true" /> -->
+				<c-demo-a v-if="state.showDemo == false"  @set="state.showDemo=true"/>
+				<c-demo-b v-if="state.showDemo == true"  @set="state.showDemo=false"/>
 			</view>
 
 		</view>
