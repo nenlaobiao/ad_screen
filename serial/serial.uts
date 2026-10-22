@@ -1,9 +1,13 @@
 import { RS232Serial } from '@/uni_modules/shmily-rs232-serial';
 // import { RS232Serial } from './mock.uts';
-import {checkCRC16} from "./utils.uts"
+import { checkCRC16 } from "./utils.uts"
 import { delay } from "@/utils/tools.uts"
 
 const STORAGE_KEY_LAST_PORT = "LAST_SERIAL_PORT"
+/** 接收缓冲区超过该时长没有新数据，视为残帧丢弃（毫秒） */
+const RX_STALE_MS : number = 300
+/** 最短 Modbus RTU 帧：异常响应 5 字节 */
+const MIN_FRAME_BYTES : number = 5
 /**
  * RS232 串口管理类（支持 Modbus RTU 自动连接）
  */
@@ -12,47 +16,43 @@ export class SerialManager {
 	private baud : number
 	// 存储 tryPort 的 resolve 函数，用于在数据订阅回调中触发成功
 	private currentResolve : ((ok : boolean) => void) | null = null
-	private testFrame : string 
-	private intervalMultiplier : number
+	private testFrame : string
 	private tryConnect : boolean // 正在尝试连接的标志
-	/** 命令最小间隔  */
+	/** 接收缓冲区（HEX），底层一次 read 可能只拿到半帧，需要拼包 */
+	private rxBuffer : string = ''
+	/** 最近一次收到数据的时间戳 */
+	private rxLastTime : number = 0
+	/** 连接成功后的帧回调（只收到完整且 CRC 正确的帧） */
+	private frameCallback : ((data : string) => void) | null = null
+	/** 帧间静默间隔（毫秒）：3.5 个字符时间（每字符 11 bit）再留 1ms 余量，19200 下为 4ms */
 	public intervalMs : number
 	/**  连接状态 */
 	public connecting : boolean
 
-	constructor(baud : number = 19200, testFrame : string = "010302BC000A0591", intervalMultiplier : number = 3) {
+	constructor(baud : number = 19200, testFrame : string = "010302BC000A0591") {
 		this.serialPort = new RS232Serial()
 		this.baud = baud
 		this.testFrame = testFrame
-		this.intervalMultiplier = intervalMultiplier
-		this.intervalMs = this.calcIntervalMs()
+		this.intervalMs = Math.ceil(3.5 * 11 * 1000 / baud) + 1
 		this.tryConnect = false
 		this.connecting = false
 	}
 
-
-	/** 计算 RTU 静默间隔毫秒 */
-	public calcIntervalMs() : number {
-		const tMs = 10 / this.baud   // 1T 单位毫秒
-		return Math.ceil(tMs + this.intervalMultiplier)
-	}
-
-	/** 自动扫描串口并尝试连接 Modbus PLC */
-	public async autoConnect(timeout = 800) : Promise<void> {
+	/**
+	 * 自动扫描串口并尝试连接 Modbus PLC
+	 * @returns 是否已连接（连接流程进行中时返回 false）
+	 */
+	public async autoConnect(timeout = 800) : Promise<boolean> {
 		// 防止重复触发连接流程
-		if (this.tryConnect || this.connecting) return
+		if (this.tryConnect || this.connecting) return this.connecting
 
 		this.tryConnect = true
 		this.connecting = false // 重置连接状态
 
-		// 订阅数据：在 autoConnect 开始时设置监听器。
-		// 依赖 checkCRC16 和 currentResolve 来判断当前数据是否有效。
+		// 订阅数据：插件只保存一个回调，这里统一接管，拼包后再分发（见 dispatchFrame）
+		this.rxBuffer = ''
 		this.serialPort.subscribe('HEX', (data : string) => {
-			// 只有当存在一个激活的 tryPort 尝试时，且数据 CRC 校验通过，才触发成功
-			if (checkCRC16(data) && this.currentResolve != null) {
-				const resolveFunc = this.currentResolve // 确保调用 resolve 前不会被其他逻辑覆盖
-				resolveFunc(true)  // 收到有效数据，认为连接成功
-			}
+			this.feedRx(data)
 		})
 
 		const ports = this.serialPort.getDeviceList()
@@ -65,7 +65,7 @@ export class SerialManager {
 				console.log("✔ 成功连接上次端口:", lastPort)
 				this.tryConnect = false
 				this.connecting = true
-				return
+				return true
 			}
 		}
 
@@ -77,7 +77,7 @@ export class SerialManager {
 				uni.setStorageSync(STORAGE_KEY_LAST_PORT, port) // 缓存成功端口
 				this.tryConnect = false
 				this.connecting = true
-				return
+				return true
 			}
 		}
 
@@ -85,6 +85,7 @@ export class SerialManager {
 		this.tryConnect = false
 		this.connecting = false
 		console.error("未找到可用的 Modbus 设备")
+		return false
 	}
 
 	/** 尝试打开单个端口并发送测试帧 */
@@ -110,7 +111,7 @@ export class SerialManager {
 					if (tId != null) clearTimeout(tId)
 					const dId = initialDelayTimerId
 					if (dId != null) clearTimeout(dId)
-					
+
 					// 2. 清除全局 resolve 引用，防止数据订阅回调错误触发
 					self.currentResolve = null
 
@@ -126,7 +127,7 @@ export class SerialManager {
 							console.warn(`关闭端口 ${port} 时可能发生错误 (可能未成功打开):`, e)
 						}
 					}
-					
+
 					// 4. 解决 Promise
 					resolve(ok)
 				}
@@ -148,7 +149,7 @@ export class SerialManager {
 			} catch (err) {
 				console.error(`端口 ${port} 打开失败:`, err)
 				// 打开失败，直接 resolve false，不需要再设置超时或发送
-				finalResolve(false) 
+				finalResolve(false)
 				return
 			}
 
@@ -172,15 +173,16 @@ export class SerialManager {
 
 	/** 发送 HEX 指令 */
 	public async sendHex(frame : string) {
-		// 如果正在尝试连接但未成功，则阻止发送
-		if (this.tryConnect && !this.connecting) {
-			console.warn("串口正在尝试连接中，发送操作被阻止。")
-			return
-		}
-		// 如果未连接，则阻止发送
+		// 未连接（包括正在扫描端口）时阻止发送
 		if (!this.connecting) {
 			console.warn("串口未连接，发送操作被阻止。")
 			return
+		}
+
+		// 新请求发出前清掉上一轮的残留，避免污染本次响应
+		if (this.rxBuffer.length > 0) {
+			console.warn(`发送前丢弃残留字节: ${this.rxBuffer}`)
+			this.rxBuffer = ''
 		}
 
 		try {
@@ -193,31 +195,99 @@ export class SerialManager {
 
 	/** 关闭串口 */
 	public close() {
+		// 先重置状态，关闭失败也不影响后续重连
+		this.connecting = false
+		this.tryConnect = false // 停止任何尝试连接状态
+		this.currentResolve = null // 清除任何悬挂的 resolve
+		this.rxBuffer = ''
 		try {
 			this.serialPort.close()
-			this.connecting = false
-			this.tryConnect = false // 停止任何尝试连接状态
-			this.currentResolve = null // 清除任何悬挂的 resolve
 			console.log("串口已成功关闭。")
 		} catch (e) {
 			console.error("关闭串口时发生错误:", e)
 		}
 	}
 
-	/** 订阅数据（自定义） */
+	/**
+	 * 订阅数据：回调只会收到完整且 CRC 正确的帧（连接探测期间的帧不会分发）。
+	 * 只保留一个订阅者，由 ModbusQueue 在构造时注册，连接前后都可调用
+	 */
 	public subscribe(callback : (data : string) => void) {
-		// 仅在连接成功后允许订阅用户自定义回调
-		if (!this.connecting) {
-			console.warn("串口未连接，无法订阅数据。")
+		this.frameCallback = callback
+	}
+
+	/** 底层原始数据入口：追加到缓冲区并尝试切出完整帧 */
+	private feedRx(hex : string) {
+		const now = Date.now()
+		if (this.rxBuffer.length > 0 && now - this.rxLastTime > RX_STALE_MS) {
+			console.warn(`丢弃超时残帧: ${this.rxBuffer}`)
+			this.rxBuffer = ''
+		}
+		this.rxLastTime = now
+		this.rxBuffer += hex
+		this.extractFrames()
+	}
+
+	/**
+	 * 从缓冲区按功能码推算帧长并切帧：
+	 * 长度不够就等下一包；CRC 不对就丢 1 字节重新找帧头
+	 */
+	private extractFrames() {
+		let dropped = ''
+		while (this.rxBuffer.length >= MIN_FRAME_BYTES * 2) {
+			const len = this.expectedFrameBytes()
+			if (len < 0) {
+				dropped += this.rxBuffer.substring(0, 2)
+				this.rxBuffer = this.rxBuffer.substring(2)
+				continue
+			}
+			if (this.rxBuffer.length < len * 2) break
+
+			const frame = this.rxBuffer.substring(0, len * 2)
+			if (checkCRC16(frame)) {
+				if (dropped.length > 0) {
+					console.warn(`丢弃无效字节: ${dropped}`)
+					dropped = ''
+				}
+				this.rxBuffer = this.rxBuffer.substring(len * 2)
+				this.dispatchFrame(frame)
+			} else {
+				dropped += this.rxBuffer.substring(0, 2)
+				this.rxBuffer = this.rxBuffer.substring(2)
+			}
+		}
+		if (dropped.length > 0) {
+			console.warn(`丢弃无效字节: ${dropped}`)
+		}
+	}
+
+	/** 根据缓冲区开头的功能码推算整帧字节数，未知功能码返回 -1 */
+	private expectedFrameBytes() : number {
+		const fc = parseInt(this.rxBuffer.substring(2, 4), 16)
+		if ((fc & 0x80) != 0) return 5 // 异常响应：地址 + 功能码 + 异常码 + CRC
+		if (fc >= 1 && fc <= 4) {
+			// 读响应：地址 + 功能码 + 字节数 + 数据 + CRC；字节数超过 250 必然是错位
+			const byteCount = parseInt(this.rxBuffer.substring(4, 6), 16)
+			if (byteCount > 250) return -1
+			return 5 + byteCount
+		}
+		if (fc == 5 || fc == 6 || fc == 15 || fc == 16) return 8 // 写响应：固定 8 字节
+		return -1
+	}
+
+	/** 分发完整帧：连接探测阶段交给 tryPort，连接后交给订阅者 */
+	private dispatchFrame(frame : string) {
+		const resolveFunc = this.currentResolve
+		if (resolveFunc != null) {
+			resolveFunc(true) // 收到有效数据，认为连接成功
 			return
 		}
-		this.serialPort.subscribe('HEX', (hex:string)=>{
-			if(checkCRC16(hex)){
-				callback(hex)
-			}
-		})
+		const callback = this.frameCallback
+		if (callback != null) {
+			callback(frame)
+		}
 	}
-	
+
 	/** 获取可用端口列表 */
 	public getDeviceList() : string[] {
 		// 无论是否连接成功，都应该能获取设备列表，但为了保持原代码逻辑，暂时保留限制。

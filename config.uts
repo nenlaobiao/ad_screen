@@ -19,3 +19,12 @@ export const ossUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.
 
 /** 流量犇犇OSS地址 */
 export const llbbOssUrl : string = "https://xyh-static-app.oss-cn-hangzhou.aliyuncs.com"
+
+/** WebSocket 服务地址 */
+export const wsUrl : string = "wss://cutepet.liuliangbenben.com/wss"
+
+/**
+ * debug 模式：选中套餐后点击支付码，跳过支付直接发出洗护指令
+ * 仅用于调试设备，正式发布前务必改回 false
+ */
+export const debugMode : boolean = true

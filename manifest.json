@@ -72,7 +72,8 @@
 				"x86_64"
 			],
 			"minSdkVersion": "21",
-			"targetSdkVersion": "32"
+			"targetSdkVersion": "32",
+			"schemes": "adscreen"
 		}
 	},
 	"app-ios": {

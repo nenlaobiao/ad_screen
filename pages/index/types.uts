@@ -4,10 +4,11 @@ export type AdItem = {
 	title : string;
 	src : string;
 	type : 'video' | 'image';
+	/** 图片广告停留时长（秒），服务器下发，不传默认 10 秒 */
+	duration ?: number;
 }
 export type State = {
 	adList : AdItem[];
-	showDemo:boolean
 }
 export type GetMediaInfo = GetImageInfoSuccess | GetVideoInfoSuccess | null | false
 

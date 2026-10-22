@@ -10,7 +10,24 @@ import Runtime from 'java.lang.Runtime';
 import BufferedReader from 'java.io.BufferedReader';
 import InputStreamReader from 'java.io.InputStreamReader';
 import DataOutputStream from 'java.io.DataOutputStream';
+import Intent from 'android.content.Intent';
+import Bitmap from 'android.graphics.Bitmap';
+import Canvas from 'android.graphics.Canvas';
+import FileOutputStream from 'java.io.FileOutputStream';
+import Context from 'android.content.Context';
+import PackageInstaller from 'android.content.pm.PackageInstaller';
+import PendingIntent from 'android.app.PendingIntent';
+import AlarmManager from 'android.app.AlarmManager';
+import PowerManager from 'android.os.PowerManager';
+import Files from 'java.nio.file.Files';
+import System from 'java.lang.System';
+import Rect from 'android.graphics.Rect';
+import DisplayMetrics from 'android.util.DisplayMetrics';
+import Integer from 'java.lang.Integer';
 // #endif
+
+/** 静默安装自身后重新打开 App 的延时（毫秒）：设两次，避免安装还没完成时就触发 */
+const RELAUNCH_DELAYS_MS : number[] = [30 * 1000, 90 * 1000]
 
 /**
  * 全屏沉浸模式
@@ -104,26 +121,206 @@ export function execRootShell(cmd: string): Promise<string> {
     });
 }
 
-/**
- * 静默安装 APK (需 Root)
- * @param apkPath APK 文件在手机里的绝对路径
- */
-export async function silentInstall(apkPath: string): Promise<boolean> {
-    try {
-        // pm install -r 强制覆盖安装
-        const result = await execRootShell(`pm install -r ${apkPath}`);
-        return result.toLowerCase().includes("success");
-    } catch (e) {
-        console.error("静默安装失败:", e);
-        return false;
+// #ifdef APP-ANDROID
+/** PendingIntent 标志：Android 12 起必须显式声明可变性 */
+function pendingIntentFlags() : Int {
+    if (Build.VERSION.SDK_INT >= 31) {
+        return PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
     }
+    return PendingIntent.FLAG_UPDATE_CURRENT;
 }
 
 /**
- * 静默重启设备 (需 Root)
+ * 用闹钟安排若干时间后重新打开 App（覆盖安装会结束当前进程；闹钟在应用更新后仍保留）
+ * 从后台打开界面需要平台签名授予的 START_ACTIVITIES_FROM_BACKGROUND 权限
  */
-export async function rebootDevice() {
-    return await execRootShell("reboot");
+function scheduleRelaunch(context : Context) {
+    const intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+    if (intent == null) return;
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    const alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager;
+    for (let i = 0; i < RELAUNCH_DELAYS_MS.length; i++) {
+        const pending = PendingIntent.getActivity(context, (1000 + i).toInt(), intent, pendingIntentFlags());
+        alarm.set(AlarmManager.RTC, System.currentTimeMillis() + RELAUNCH_DELAYS_MS[i].toLong(), pending);
+    }
+}
+// #endif
+
+/**
+ * 静默安装 APK 并自动重新打开 App
+ * 用系统安装接口 PackageInstaller，需要平台签名授予的 INSTALL_PACKAGES 权限，不需要 Root、不弹确认框。
+ * 安装的是自己时系统会结束当前进程，提交前先安排闹钟重新打开 App。
+ * @param apkPath APK 文件在手机里的绝对路径
+ * @returns 是否已提交安装（安装结果是异步的，成功时进程会被结束）
+ */
+export function silentInstallAndRestart(apkPath: string): boolean {
+    // #ifdef APP-ANDROID
+    const context = UTSAndroid.getAppContext();
+    if (context == null) return false;
+    let session : PackageInstaller.Session | null = null;
+    try {
+        const file = new File(apkPath);
+        const installer = context.getPackageManager().getPackageInstaller();
+        const params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        const sessionId = installer.createSession(params);
+        session = installer.openSession(sessionId);
+        // 把安装包写入安装会话
+        const output = session.openWrite("package", 0, file.length());
+        Files.copy(file.toPath(), output);
+        session.fsync(output);
+        output.close();
+
+        scheduleRelaunch(context);
+        // commit 需要一个回执；安装自身时进程会被结束，这里不处理结果
+        const resultIntent = new Intent("ming.adscreen.INSTALL_RESULT");
+        resultIntent.setPackage(context.getPackageName());
+        const pending = PendingIntent.getBroadcast(context, sessionId, resultIntent, pendingIntentFlags());
+        session.commit(pending.getIntentSender());
+        session.close();
+        console.log(`已提交静默安装: ${apkPath}`);
+        return true;
+    } catch (e) {
+        console.error("静默安装失败:", e);
+        session?.abandon();
+        return false;
+    }
+    // #endif
+    // #ifndef APP-ANDROID
+    return false;
+    // #endif
+}
+
+/**
+ * 重启 App：重新打开启动页后结束当前进程
+ */
+export function restartApp() {
+    // #ifdef APP-ANDROID
+    const activity = UTSAndroid.getUniActivity();
+    if (activity == null) return;
+    const intent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+    if (intent == null) return;
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    activity.startActivity(intent);
+    // 不引入 android.os.Process：会和本文件里用到的 java.lang.Process 重名
+    Runtime.getRuntime().exit(0);
+    // #endif
+}
+
+/**
+ * 截图存放目录：App 缓存目录的真实路径
+ * 不能用 uni.env.USER_DATA_PATH，它是 unifile:// 虚拟路径，screencap 和 Java 文件接口都不认
+ */
+function screenshotDir() : string {
+    // #ifdef APP-ANDROID
+    const context = UTSAndroid.getAppContext();
+    if (context != null) return context.getCacheDir().getAbsolutePath();
+    // #endif
+    return '';
+}
+
+/**
+ * 截取整个屏幕
+ * 优先调用系统截屏接口 SurfaceControl.screenshot（screencap 内部用的也是它；
+ * 需要平台签名授予的 READ_FRAME_BUFFER 权限，能截到视频画面）；
+ * 失败时回退为截取 App 窗口
+ * @returns 截图文件的绝对路径；失败返回 null
+ */
+export async function takeScreenshot(): Promise<string | null> {
+    // #ifdef APP-ANDROID
+    const path = `${screenshotDir()}/screenshot_${Date.now()}.jpg`;
+    try {
+        if (captureSurface(path)) return path;
+        console.warn("系统截屏返回空，改为截取 App 窗口");
+    } catch (e) {
+        console.warn("系统截屏失败，改为截取 App 窗口", e);
+    }
+    // #endif
+    return await captureWindow();
+}
+
+// #ifdef APP-ANDROID
+/**
+ * 用隐藏接口 SurfaceControl.screenshot(Rect, int, int, int) 截取整个屏幕（Android 10）
+ * 平台签名的 App 不受隐藏接口限制
+ * @returns 是否成功写出截图文件
+ */
+function captureSurface(path : string) : boolean {
+    const activity = UTSAndroid.getUniActivity();
+    if (activity == null) return false;
+    const metrics = new DisplayMetrics();
+    activity.getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+    const surfaceControl = Class.forName("android.view.SurfaceControl");
+    const method = surfaceControl.getMethod("screenshot", Class.forName("android.graphics.Rect"), Integer.TYPE, Integer.TYPE, Integer.TYPE);
+    const result = method.invoke(null, new Rect(), metrics.widthPixels, metrics.heightPixels, (0).toInt());
+    if (result == null) return false;
+    // 返回的是硬件位图，先复制成普通位图再压缩
+    const hardware = result as Bitmap;
+    const bitmap = hardware.copy(Bitmap.Config.ARGB_8888, false);
+    const out = new FileOutputStream(path);
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
+    out.flush();
+    out.close();
+    bitmap.recycle();
+    hardware.recycle();
+    return true;
+}
+// #endif
+
+/**
+ * 截取 App 窗口（不需要任何权限；App 全屏显示，截到的就是整块屏幕）
+ * 限制：视频画面单独绘制，截图里视频区域可能是黑的
+ * @returns 截图文件的绝对路径；失败返回 null
+ */
+function captureWindow(): Promise<string | null> {
+    return new Promise<string | null>((resolve : (path : string | null) => void) => {
+        // #ifdef APP-ANDROID
+        const activity = UTSAndroid.getUniActivity();
+        if (activity == null) {
+            resolve(null);
+            return;
+        }
+        // 绘制界面必须在 UI 线程
+        activity.runOnUiThread(() => {
+            const path = `${screenshotDir()}/screenshot_${Date.now()}.jpg`;
+            try {
+                const view = activity.getWindow().getDecorView();
+                const width = view.getWidth();
+                const height = view.getHeight();
+                if (width <= 0 || height <= 0) {
+                    resolve(null);
+                    return;
+                }
+                const bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                view.draw(new Canvas(bitmap));
+                const out = new FileOutputStream(path);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
+                out.flush();
+                out.close();
+                bitmap.recycle();
+                resolve(path);
+            } catch (e) {
+                console.error("截屏失败:", e);
+                resolve(null);
+            }
+        });
+        // #endif
+        // #ifndef APP-ANDROID
+        resolve(null);
+        // #endif
+    });
+}
+
+/**
+ * 重启设备（需要平台签名授予的 REBOOT 权限，不需要 Root）
+ */
+export function rebootDevice() {
+    // #ifdef APP-ANDROID
+    const context = UTSAndroid.getAppContext();
+    if (context == null) return;
+    const power = context.getSystemService(Context.POWER_SERVICE) as PowerManager;
+    power.reboot(null);
+    // #endif
 }
 
 

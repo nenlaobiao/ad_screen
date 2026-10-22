@@ -1,0 +1,238 @@
+import { TtsSpeaker } from '@/uni_modules/w-tts-speaker'
+
+/** 本地缓存：本轮洗护各语音剩余播报次数（App 重启后继续沿用） */
+const STORAGE_VOICE_RECORD : string = 'voiceRecord'
+/** 背景音乐列表，轮流播放 */
+const BGM_LIST : string[] = [
+	'/static/BGM/BennieMoten-South.mp3',
+	'/static/BGM/JavierHo-A_Very_Special_Night.mp3',
+]
+
+/** 每轮洗护各语音最多播报次数（沿用旧版 recordData） */
+function defaultRecord() : UTSJSONObject {
+	return {
+		voice_cwsy: 1, // 宠物适应中
+		voice_hwsx: 1, // 恒温水洗（每次冲洗前重新置 1）
+		voice_hwhg: 1, // 恒温烘干
+		voice_pshms: 1, // 喷护毛素
+		voice_psmyl: 1, // 喷沐浴露
+		voice_zx: 1, // 谢谢惠顾
+		voice_jt: 3, // 急停
+		voice_qccw: 3, // 请取出多余宠物
+		voice_gm: 3, // 关门提醒
+		voice_xdwc: 3, // 消毒完成
+		voice_xywc: 3, // 洗浴完成
+		voice_hgzf: 3, // 烘干支付完成
+		voice_xhzf: 3, // 洗护支付完成
+	}
+}
+
+/** 服务器没有下发文案时的默认语音（沿用旧版）；没有默认文案的只播服务器配置 */
+function defaultText(key : string) : string {
+	if (key == 'cwsy') return '宠物适应中。'
+	if (key == 'qccw') return '每次洗护只能放入一只宠物，请取出。'
+	if (key == 'jt') return '机器已急停，请取出宠物后关门'
+	if (key == 'zx') return '谢谢惠顾。欢迎下次再来！'
+	if (key == 'hwsx') return '笼内恒温水洗中。'
+	if (key == 'psmyl') return '正在喷洒沐浴露中。'
+	if (key == 'pshms') return '正在喷洒护毛素中。'
+	if (key == 'hwhg') return '笼内恒温烘干中。'
+	if (key == 'gm') return '放入宠物后，请关门并压紧门框十到十五秒，确认门已经关紧为止。'
+	return ''
+}
+
+/**
+ * TTS 播报队列（沿用旧版 TTSSpeech 的队列语义）
+ * 插件每次播报都会打断上一句；speechMessage 的 Promise 在本句播完 / 被停止时才结束，
+ * 这里等上一句的 Promise 结束再播下一句，排队的语音不会互相打断
+ */
+class Speaker {
+	private tts : TtsSpeaker | null = null
+	private ready : boolean = false
+	private queue : string[] = []
+	/** 正在播报（上一句的 Promise 还没结束） */
+	private playing : boolean = false
+	/** 每次打断加 1：被打断的那一句结束后，不再接着播队列 */
+	private generation : number = 0
+
+	init() {
+		if (this.tts != null) return
+		this.tts = new TtsSpeaker({
+			language: 'ZH',
+			// 设备可能处于静音铃声模式，广告屏需要照常播报
+			alwaysPlay: true,
+			callback: (res) => {
+				if (res.success == 0) {
+					console.log('TTS 初始化成功')
+					this.ready = true
+					this.playNext()
+				} else {
+					console.warn(`TTS 初始化失败: ${res.message}`)
+				}
+			}
+		})
+	}
+
+	/**
+	 * @param skip true 打断当前播报并清空队列，立即播放；false 排在队列后面
+	 */
+	speak(text : string, skip : boolean) {
+		if (text == '') return
+		this.init()
+		if (skip) this.stop()
+		this.queue.push(text)
+		this.playNext()
+	}
+
+	/** 打断当前播报并清空队列 */
+	stop() {
+		this.queue = []
+		this.generation++
+		this.playing = false
+		this.tts?.stopSpeech()
+	}
+
+	/** 停止播报并释放 TTS 引擎 */
+	destroy() {
+		this.stop()
+		this.tts?.shutdown()
+		this.tts = null
+		this.ready = false
+	}
+
+	private async playNext() {
+		const tts = this.tts
+		if (!this.ready || tts == null || this.playing || this.queue.length == 0) return
+		const text = this.queue.shift()!
+		const generation = this.generation
+		this.playing = true
+		console.log(`TTS 播报: ${text}`)
+		await tts.speechMessage(text)
+		console.log(`TTS 播报结束: ${text}`)
+		// 这一句是被 stop 打断的：队列已清空或换了新的，交给新的播报
+		if (generation != this.generation) return
+		this.playing = false
+		this.playNext()
+	}
+}
+
+/** 背景音乐：两首轮流循环播放 */
+class Bgm {
+	private ctx : InnerAudioContext | null = null
+	private index : number = 0
+
+	play() {
+		if (this.ctx != null) return
+		const ctx = uni.createInnerAudioContext()
+		ctx.src = BGM_LIST[this.index]
+		ctx.onEnded((res) => {
+			this.index = (this.index + 1) % BGM_LIST.length
+			ctx.src = BGM_LIST[this.index]
+			ctx.play()
+		})
+		ctx.onError((err) => {
+			console.warn('背景音乐播放失败', err)
+		})
+		ctx.play()
+		this.ctx = ctx
+	}
+
+	stop() {
+		const ctx = this.ctx
+		if (ctx == null) return
+		this.ctx = null
+		this.index = 0
+		ctx.stop()
+		ctx.destroy()
+	}
+}
+
+/**
+ * 语音提醒与背景音乐（沿用旧版 voiceReminder / setRecordStatus / audioPlay）
+ * - 每种提醒按 key 计次，播完次数后本轮洗护不再播；待机时重置
+ * - 提醒文案优先用服务器巡检接口下发的 voice 配置
+ */
+class VoiceController {
+	private speaker : Speaker = new Speaker()
+	private bgm : Bgm = new Bgm()
+	/** 各提醒剩余播报次数 */
+	private record : UTSJSONObject = defaultRecord()
+	/** 服务器下发的文案 [{ identifier, content }] */
+	private voiceList : UTSJSONObject[] = []
+
+	constructor() {}
+
+	/** 初始化：在 App.uvue 的 onLaunch 中调用（TTS 引擎初始化需要时间，提前创建） */
+	init() {
+		const saved = uni.getStorageSync(STORAGE_VOICE_RECORD)
+		if (saved instanceof UTSJSONObject) this.record = saved as UTSJSONObject
+		this.speaker.init()
+	}
+
+	/** 直接播报一句话 */
+	speak(text : string, skip : boolean = true) {
+		this.speaker.speak(text, skip)
+	}
+
+	/**
+	 * 按 key 播报提醒，剩余次数用完则不播
+	 * @param skip true 打断当前播报；默认排队
+	 */
+	remind(key : string, skip : boolean = false) {
+		const count = this.record.getNumber(`voice_${key}`) ?? 0
+		if (count <= 0) return
+		const text = this.textOf(key)
+		if (text == '') return
+		this.setRecord(key, count - 1)
+		this.speaker.speak(text, skip)
+	}
+
+	/** 设置某个提醒的剩余次数（如每次冲洗前重新允许播一次） */
+	setRecord(key : string, count : number) {
+		this.record.set(`voice_${key}`, count)
+		uni.setStorageSync(STORAGE_VOICE_RECORD, this.record)
+	}
+
+	/** 新一轮洗护：恢复所有提醒的次数 */
+	resetRecord() {
+		this.record = defaultRecord()
+		uni.setStorageSync(STORAGE_VOICE_RECORD, this.record)
+	}
+
+	/** 更新服务器下发的提醒文案 [{ identifier, content }] */
+	setVoiceList(list : UTSJSONObject[]) {
+		this.voiceList = list
+	}
+
+	playBgm() {
+		this.bgm.play()
+	}
+
+	stopBgm() {
+		this.bgm.stop()
+	}
+
+	/** 停止所有声音 */
+	stop() {
+		this.speaker.stop()
+		this.bgm.stop()
+	}
+
+	/** 销毁：在 App 退出时调用，停止所有声音并释放 TTS 引擎 */
+	destroy() {
+		this.speaker.destroy()
+		this.bgm.stop()
+	}
+
+	private textOf(key : string) : string {
+		for (const item of this.voiceList) {
+			if (item.getString('identifier') == key) {
+				const content = item.getString('content') ?? ''
+				if (content != '') return content
+			}
+		}
+		return defaultText(key)
+	}
+}
+
+export default new VoiceController()

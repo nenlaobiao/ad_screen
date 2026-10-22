@@ -7,14 +7,23 @@
 	import fileManage from "@/utils/file.uts"
 	import { mpGoodsQrUrl } from "@/config.uts"
 	import { mpWashQrUrl } from "@/config.uts"
-	import { getQrUrl } from "@/utils/tools.uts"
+	import { getQrUrl, showMsg } from "@/utils/tools.uts"
 	import { globalState } from "@/store/index.uts"
-	
+	import { debugMode } from "@/config.uts"
+	import serialController from "@/serial/index.uts"
+	import voiceController from "@/voice/index.uts"
+
 	import type { TempObject, GoodsClassData } from '@/api/types/tempTypes.uts'
 	import type { DeviceInfo } from '@/api/types/deviceInfoTypes.uts'
 	import type { Goods } from '@/api/types/goodsTypes.uts'
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { State } from "./types.uts"
+	/** 普洗、精洗允许下单的最低水温（℃） */
+	const MIN_WASH_WATER_TEMP : number = 26
+	/** 商品模板失败重试间隔、定时刷新间隔、套餐信息失败重试间隔（毫秒） */
+	const TEMPLATE_RETRY_MS : number = 10000
+	const TEMPLATE_REFRESH_MS : number = 60 * 60 * 1000
+	const DEVICE_INFO_RETRY_MS : number = 3000
 	const emits = defineEmits<{
 		(e : "open", event : any) : void
 	}>()
@@ -25,6 +34,38 @@
 		petWash: null,
 		showPay: false,
 	})
+	/**
+	 * 拉取商品模板：先在顶部声明，函数体在下方 loadTemplate 赋值
+	 * （setup 里的函数不能在声明前引用，重试 / 定时刷新 / 网络恢复都要调用它）
+	 */
+	let getTemplateFn : () => void = () => {}
+	/** 商品模板是否已拉取成功 */
+	let templateOk = false
+	let templateRetryTimer : number | null = null
+	let templateRefreshTimer : number | null = null
+	let deviceInfoRetryTimer : number | null = null
+
+	function clearTimer(timerId : number | null) {
+		if (timerId != null) clearTimeout(timerId)
+	}
+	/** 商品模板拉取失败：10 秒后重试 */
+	function retryTemplate() {
+		templateOk = false
+		clearTimer(templateRetryTimer)
+		templateRetryTimer = setTimeout(() => {
+			templateRetryTimer = null
+			getTemplateFn()
+		}, TEMPLATE_RETRY_MS)
+	}
+	/** 每小时检查一次：凌晨 1 点或之前没拉成功时重新拉取商品（沿用旧版） */
+	function scheduleTemplateRefresh() {
+		clearTimer(templateRefreshTimer)
+		templateRefreshTimer = setTimeout(() => {
+			templateRefreshTimer = null
+			if (new Date().getHours() == 1 || !templateOk) getTemplateFn()
+			scheduleTemplateRefresh()
+		}, TEMPLATE_REFRESH_MS)
+	}
 	function goodsQRcode(id : number | string) {
 		return getQrUrl(mpGoodsQrUrl, `?spm=0.50.${id}.1.2`)
 	}
@@ -68,12 +109,15 @@
 		}
 	}
 	// 获取装修模板信息
-	async function getTemplateFn() {
+	async function loadTemplate() {
+		clearTimer(templateRetryTimer)
+		templateRetryTimer = null
 		try {
 			let res = await getTemplate<TempObject>({
 				templateId:117
 			})
 			if (res.error == 0) {
+				templateOk = true
 				let resData = toNewObject<TempObject>(res.data)
 				let templateData = resData.template.home?.data
 				if (templateData != null) {
@@ -88,14 +132,23 @@
 						getGoodsInfoFn(adIds)
 					}
 				}
+			} else {
+				retryTemplate()
 			}
 		} catch (error) {
 			console.log('getTemplate --- 请求失败', error)
+			retryTemplate()
 		}
 	}
-	function openDevice() {
-		console.log('open')
-		emits('open', state.petWash!)
+	getTemplateFn = () => {
+		loadTemplate()
+	}
+	/** 套餐类型 batch_type 对应的启动套餐：1 烘干、2 普洗、3 精洗 */
+	function levelOf(batchType : number) : string {
+		if (batchType == 1) return 'dry'
+		if (batchType == 2) return 'basis'
+		if (batchType == 3) return 'enhance'
+		return ''
 	}
 
 	const MPQRcode = computed(() => {
@@ -114,15 +167,29 @@
 		}
 	}
 	function payTap(e : DeviceInfo) {
+		// 普洗、精洗需要热水：水温不到 26℃ 不让下单（沿用旧版）
+		if ((e.batch_type == 2 || e.batch_type == 3) && globalState.deviceData.water < MIN_WASH_WATER_TEMP) {
+			showMsg('请等待水温加热至26摄氏度')
+			voiceController.speak('请等待水温加热至26摄氏度。', true)
+			return
+		}
 		state.petWash = e
 		state.showPay = true
 		timer = setTimeout(()=>{
 			payBack()
+			showMsg('长时间未操作，支付取消')
 		},60000)
 	}
-	
+	// 服务器推送支付完成（写入新订单号）后收起支付二维码
+	watch(() : string => globalState.order_id, (orderId : string) => {
+		if (orderId != '') payBack()
+	})
+
 	// 获取套餐信息
 	async function getDeviceInfoFn() {
+		clearTimer(deviceInfoRetryTimer)
+		deviceInfoRetryTimer = null
+		let ok = false
 		try {
 			console.log('加载套餐信息')
 			let res = await getDeviceInfo<DeviceInfo[]>()
@@ -130,16 +197,48 @@
 				let data = toNewArray<DeviceInfo>(res.data)
 				state.petWashInfo = data
 				state.petWash = data[0]
+				ok = true
 			}
 		} catch (error) {
 			console.log('getDeviceInfoFn --- catch', error)
 		}
+		// 套餐信息拉取失败：3 秒后重试
+		if (!ok) {
+			deviceInfoRetryTimer = setTimeout(() => {
+				deviceInfoRetryTimer = null
+				getDeviceInfoFn()
+			}, DEVICE_INFO_RETRY_MS)
+		}
+	}
+	// 网络恢复后重新拉取套餐和商品（沿用旧版 networkCallback）
+	watch(() : boolean => globalState.networkConnected, (connected : boolean) => {
+		if (!connected) return
+		getDeviceInfoFn()
+		getTemplateFn()
+	})
+	// 点击支付码：debug 模式下跳过支付，直接发出洗护指令
+	async function openDevice() {
+		emits('open', state.petWash!)
+		if (!debugMode) return
+		const petWash = state.petWash
+		if (petWash == null) return
+		console.log(`[debug] 跳过支付，直接启动: ${petWash.title}`)
+		payBack()
+		const ok = await serialController.startService(levelOf(petWash.batch_type))
+		showMsg(ok ? '[debug] 已发出洗护指令' : '[debug] 洗护指令发送失败')
 	}
 
 	
 	onLoad(()=>{
 		getTemplateFn()
 		getDeviceInfoFn()
+		scheduleTemplateRefresh()
+	})
+	onUnmounted(() => {
+		clearTimer(templateRetryTimer)
+		clearTimer(templateRefreshTimer)
+		clearTimer(deviceInfoRetryTimer)
+		payBack()
 	})
 
 </script>

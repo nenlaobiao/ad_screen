@@ -150,3 +150,15 @@ export function formatDate(input : number) : string {
 
   return `${yyyy}年${mm}月${dd}日 ${hh}:${MM}:${ss}`
 }
+
+/**
+ * 秒数格式化为 mm:ss（负数按 0 处理）
+ */
+export function formatSeconds(seconds : number) : string {
+  const total = seconds < 0 ? 0 : Math.floor(seconds)
+  const minutes = Math.floor(total / 60)
+  const secs = total % 60
+  const mm = minutes < 10 ? `0${minutes}` : `${minutes}`
+  const ss = secs < 10 ? `0${secs}` : `${secs}`
+  return `${mm}:${ss}`
+}

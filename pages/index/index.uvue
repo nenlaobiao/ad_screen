@@ -1,6 +1,9 @@
 <script setup lang="uts">
 	import { toNewObject, toNewArray} from "@/utils/tools.uts"
-	
+	import { globalState } from "@/store/index.uts"
+	import { getWashView } from "@/wash/index.uts"
+	import type { WashView } from "@/wash/index.uts"
+
 	import type { AdItem, State } from './types.uts'
 
 	const adData : AdItem[] = [
@@ -79,8 +82,9 @@
 	]
 	const state = reactive<State>({
 		adList: adData,
-		showDemo:false
 	})
+	/** 右侧显示内容：套餐页 / 状态卡 / 洗护步骤，随设备状态切换 */
+	const washView = computed<WashView>(() : WashView => getWashView())
 
 	onLoad(() => {
 	})
@@ -95,25 +99,34 @@
 
 			<!-- 左侧广告 -->
 			<view class="adBox">
-				<c-ad :list="state.adList" />
+				<!-- 服务器下发广告前先播放本地测试数据 -->
+				<c-ad :list="globalState.adList" />
 			</view>
 
 			<view class="rightBox">
 
-				<!-- 套餐、商品 -->
+				<!-- 套餐、商品（一直挂载，洗护中被下面的状态卡 / 步骤页盖住） -->
 				<c-pay-goods />
 
 				<!-- 设备状态 -->
-				<c-status-card v-if="false" />
+				<c-status-card v-if="washView.type == 'card'" :status="washView.card" :tips="washView.tips"
+					:seconds="washView.seconds" />
 
 				<!-- 洗护进度 -->
-				<c-wash-progress v-if="false" />
+				<c-wash-progress v-if="washView.type == 'progress'" :status="globalState.deviceData.status"
+					:seconds="washView.seconds" />
 
+				<!-- 测试模块 -->
 				<!-- <c-demo v-if="true" /> -->
-				<c-demo-a v-if="state.showDemo == false"  @set="state.showDemo=true"/>
-				<c-demo-b v-if="state.showDemo == true"  @set="state.showDemo=false"/>
 			</view>
 
+		</view>
+		<!-- 网络故障：只在待机显示套餐页时遮住广告和套餐，暂停使用；洗护中不打断（沿用旧版） -->
+		<view v-if="!globalState.networkConnected && washView.type == 'pay'" class="network-error">
+			<view class="network-error-card">
+				<text class="network-error-title">网络故障，暂停使用</text>
+				<text class="network-error-tips">网络恢复后将自动重新连接</text>
+			</view>
 		</view>
 		<!-- 底部状态栏 -->
 		<c-statusbar />
@@ -170,5 +183,36 @@
 		}
 
 		//  ========== 主内容区结束==========
+
+		// ---------网络故障遮罩-----------
+		.network-error {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 12rpx; // 留出底部状态栏
+			background-color: rgba(0, 0, 0, 0.6);
+			align-items: center;
+			justify-content: center;
+
+			.network-error-card {
+				padding: 20rpx 40rpx;
+				border-radius: 18rpx;
+				background-color: #fff;
+				align-items: center;
+
+				.network-error-title {
+					font-size: 24rpx;
+					font-weight: bold;
+					color: #E64340;
+				}
+
+				.network-error-tips {
+					margin-top: 8rpx;
+					font-size: 14rpx;
+					color: #666;
+				}
+			}
+		}
 	}
 </style>

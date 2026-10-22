@@ -30,6 +30,12 @@ class MySerialHelper extends SerialHelper {
   }
 }
 
+/**
+ * 进程内最近一次打开的串口。原生层的变量在 JS 热重载 / 重建实例后仍然存在，
+ * 打开新串口前先关掉它，避免两个读线程同时读同一个设备、互相抢字节导致帧乱序
+ */
+let activeHelper : MySerialHelper | null = null;
+
 export function checkHasIntegration() : boolean {
   try {
     Class.forName("com.shmily.serialport.SerialHelper");
@@ -65,7 +71,12 @@ export class RS232Serial {
   }
   open(opt : IConnectOptions) : boolean {
     try {
+      const previous = activeHelper;
+      if (previous != null && previous.isOpen()) {
+        previous.close();
+      }
       this.serialHelper = new MySerialHelper(opt, this);
+      activeHelper = this.serialHelper;
       this.serialHelper!.open();
       return true;
     } catch (e) {

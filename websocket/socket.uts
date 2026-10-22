@@ -1,0 +1,161 @@
+import { wsUrl } from "@/config.uts"
+
+/** 断开后隔多久重连（毫秒） */
+const RECONNECT_MS : number = 5000
+/** 超过这个时间还没连上，视为连接失败（毫秒） */
+const CONNECT_TIMEOUT_MS : number = 10000
+
+/**
+ * WebSocket 连接管理：负责连接、断线重连和收发 JSON。
+ * 服务端下行消息格式为 { type: 'message', data: {...} }，只把 data 交给上层。
+ */
+export class SocketManager {
+	private task : SocketTask | null = null
+	/** 连接超时 / 重连定时器 */
+	private timer : number | null = null
+	/** 主动关闭后不再自动重连 */
+	private stopped : boolean = true
+	/** 是否已连接 */
+	public connected : boolean = false
+
+	/** 连接成功（包括每次重连成功） */
+	public onOpen : (() => void) | null = null
+	/** 连接断开 */
+	public onClose : (() => void) | null = null
+	/** 收到服务端业务消息 */
+	public onMessage : ((data : UTSJSONObject) => void) | null = null
+
+	/** 开始连接；断开后会自动重连，直到调用 close() */
+	public connect() {
+		this.stopped = false
+		if (this.task != null) return // 已在连接或已连接
+		this.clearTimer()
+
+		console.log(`WebSocket 连接中: ${wsUrl}`)
+		const task = uni.connectSocket({
+			url: wsUrl,
+			fail: (err : any) => {
+				console.warn('WebSocket 连接失败', err)
+				const current = this.task
+				if (current != null) this.handleClosed(current)
+			}
+		})
+		this.task = task
+
+		task.onOpen((res : any) => {
+			if (this.task != task) return
+			this.clearTimer()
+			this.connected = true
+			console.log('WebSocket 已连接')
+			const callback = this.onOpen
+			if (callback != null) callback()
+		})
+		task.onMessage((res : OnSocketMessageCallbackResult) => {
+			if (this.task != task) return
+			this.handleMessage(res.data)
+		})
+		task.onClose((res : any) => {
+			console.log('WebSocket 已关闭', res)
+			this.handleClosed(task)
+		})
+		task.onError((err : any) => {
+			console.warn('WebSocket 出错', err)
+			this.handleClosed(task)
+		})
+
+		// 一直没有 onOpen 也没有 onError 时兜底
+		this.timer = setTimeout(() => {
+			this.timer = null
+			if (this.task == task && !this.connected) {
+				console.warn('WebSocket 连接超时')
+				this.handleClosed(task)
+			}
+		}, CONNECT_TIMEOUT_MS)
+	}
+
+	/** 主动关闭，不再自动重连 */
+	public close() {
+		this.stopped = true
+		this.clearTimer()
+		const task = this.task
+		const wasConnected = this.connected
+		this.task = null
+		this.connected = false
+		if (task != null) {
+			task.close({ code: 1000, reason: '主动关闭' })
+		}
+		if (wasConnected) this.emitClose()
+	}
+
+	/**
+	 * 发送一条 JSON 消息
+	 * @returns 是否发送成功；未连接时直接返回 false
+	 */
+	public send(data : UTSJSONObject) : Promise<boolean> {
+		return new Promise<boolean>((resolve : (ok : boolean) => void) => {
+			const task = this.task
+			if (task == null || !this.connected) {
+				resolve(false)
+				return
+			}
+			task.send({
+				data: JSON.stringify(data),
+				success: (res : any) => {
+					resolve(true)
+				},
+				fail: (err : any) => {
+					console.warn('WebSocket 发送失败', err)
+					resolve(false)
+				}
+			})
+		})
+	}
+
+	/** 解析下行消息，只处理 type 为 message 的业务消息 */
+	private handleMessage(data : any) {
+		if (typeof data != 'string') return
+		const msg = JSON.parseObject(data as string)
+		if (msg == null) {
+			console.warn(`WebSocket 收到非 JSON 消息: ${data}`)
+			return
+		}
+		if (msg.getString('type') != 'message') return
+		const payload = msg.getJSON('data')
+		const callback = this.onMessage
+		if (payload != null && callback != null) callback(payload)
+	}
+
+	/** 连接断开（onClose / onError / 超时都会走这里，同一个 task 只处理一次） */
+	private handleClosed(task : SocketTask) {
+		if (this.task != task) return
+		this.task = null
+		this.clearTimer()
+		const wasConnected = this.connected
+		this.connected = false
+		// onError 之后不一定有 onClose，这里补一次关闭，避免留下半开的连接
+		task.close({})
+		if (wasConnected) this.emitClose()
+
+		if (!this.stopped) {
+			this.timer = setTimeout(() => {
+				this.timer = null
+				this.connect()
+			}, RECONNECT_MS)
+		}
+	}
+
+	private emitClose() {
+		const callback = this.onClose
+		if (callback != null) callback()
+	}
+
+	private clearTimer() {
+		const timerId = this.timer
+		if (timerId != null) {
+			clearTimeout(timerId)
+			this.timer = null
+		}
+	}
+}
+
+export default new SocketManager()

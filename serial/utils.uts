@@ -95,3 +95,107 @@ export function parseModbusString(hexString: string): string {
     }
     return result;
 }
+
+/**
+ * 解析 Modbus 读寄存器响应 (功能码 03/04) 中的数据段
+ * 返回本次响应的寄存器原始值数组 (16 位无符号)
+ * 例如 '010304006E0000xxxx' -> [110, 0]
+ * 帧非法 (异常码 / 字节数无效) 时返回空数组
+ * @param res 完整响应帧 (含 CRC，可带空格)
+ */
+export function parseReadRegisters(res : string) : number[] {
+    const hex = res.replace(/\s+/g, "");
+    if (hex.length < 6) return [];
+    const fc = parseInt(hex.substring(2, 4), 16);
+    if (fc != 3 && fc != 4) return [];
+    const byteCount = parseInt(hex.substring(4, 6), 16);
+    if (isNaN(byteCount) || byteCount <= 0) return [];
+    const dataHex = hex.substring(6, 6 + byteCount * 2);
+    const result : number[] = [];
+    for (let i = 0; i + 4 <= dataHex.length; i += 4) {
+        result.push(parseInt(dataHex.substring(i, i + 4), 16));
+    }
+    return result;
+}
+
+/**
+ * 将两个连续的 16 位寄存器 (高字在前) 重组为 float32
+ * 与设备端存储顺序一致：高 16 位寄存器在前，低 16 位在后
+ */
+export function parseFloat32(high : number, low : number) : number {
+    const sign = ((high >> 15) & 0x1) == 1 ? -1 : 1;
+    const exponent = (high >> 7) & 0xFF;
+    const mantissa = ((high & 0x7F) << 16) | (low & 0xFFFF);
+    if (exponent == 0) {
+        // 非规格化数 (含 0)
+        return sign * Math.pow(2, -126) * (mantissa / 8388608);
+    }
+    if (exponent == 0xFF) {
+        // 无穷 / NaN 均按非法值处理
+        return NaN;
+    }
+    return sign * Math.pow(2, exponent - 127) * (1 + mantissa / 8388608);
+}
+
+/** 数字转定宽大写 HEX */
+function toHex(value: number, width: number): string {
+    return value.toString(16).toUpperCase().padStart(width, '0');
+}
+
+/**
+ * 生成 FC03 读保持寄存器请求帧（自动附加 CRC）
+ * @param start 起始寄存器地址
+ * @param count 寄存器数量
+ * @param slave 从站地址，默认 1
+ */
+export function buildReadFrame(start: number, count: number, slave: number = 1): string {
+    const body = toHex(slave, 2) + '03' + toHex(start, 4) + toHex(count, 4);
+    return body + calculateCRC16(body);
+}
+
+/**
+ * 生成 FC06 写单个寄存器请求帧（自动附加 CRC）
+ * @param address 寄存器地址
+ * @param value 写入值（16 位）
+ * @param slave 从站地址，默认 1
+ */
+export function buildWriteFrame(address: number, value: number, slave: number = 1): string {
+    const body = toHex(slave, 2) + '06' + toHex(address, 4) + toHex(value & 0xFFFF, 4);
+    return body + calculateCRC16(body);
+}
+
+/**
+ * 判断应答帧是否属于该请求（两者都应已通过 CRC 校验）
+ * 校验从站地址、功能码，以及读应答的字节数 / 写应答的回显，
+ * 防止迟到的旧应答被当成当前请求的结果。异常应答也算匹配。
+ */
+export function isResponseFor(request: string, response: string): boolean {
+    const req = request.toUpperCase();
+    const res = response.toUpperCase();
+    if (req.length < 12 || res.length < 10) return false;
+    if (req.substring(0, 2) != res.substring(0, 2)) return false; // 从站地址
+
+    const reqFc = parseInt(req.substring(2, 4), 16);
+    const resFc = parseInt(res.substring(2, 4), 16);
+    if (resFc == (reqFc | 0x80)) return true; // 异常应答
+    if (resFc != reqFc) return false;
+
+    const count = parseInt(req.substring(8, 12), 16);
+    const byteCount = parseInt(res.substring(4, 6), 16);
+    if (reqFc == 3 || reqFc == 4) return byteCount == count * 2;
+    if (reqFc == 1 || reqFc == 2) return byteCount == Math.ceil(count / 8);
+    if (reqFc == 5 || reqFc == 6) return res == req; // 原样回显
+    if (reqFc == 15 || reqFc == 16) return res.substring(0, 12) == req.substring(0, 12); // 回显起始地址与数量
+    return true;
+}
+
+/**
+ * 取异常应答的异常码（功能码最高位为 1 时）
+ * @returns 异常码；不是异常应答返回 -1
+ */
+export function getExceptionCode(response: string): number {
+    if (response.length < 6) return -1;
+    const fc = parseInt(response.substring(2, 4), 16);
+    if ((fc & 0x80) == 0) return -1;
+    return parseInt(response.substring(4, 6), 16);
+}

@@ -1,0 +1,345 @@
+import { globalState } from "@/store/index.uts"
+import type { AdItem } from "@/pages/index/types.uts"
+import serialController from "@/serial/index.uts"
+import { washPhase } from "@/serial/types.uts"
+import { restartApp, silentInstallAndRestart } from "@/utils/native.uts"
+import { screenshotAndUpload } from "@/monitor/screenshot.uts"
+import socketManager from "./socket.uts"
+
+/** 设备状态上报间隔（毫秒），与旧版轮询频率一致 */
+const REPORT_INTERVAL_MS : number = 3000
+/** 收到更新通知但设备不在待机时，隔多久再试（毫秒） */
+const UPDATE_RETRY_MS : number = 5 * 60 * 1000
+/** 提交安装后多久还没被替换，视为安装失败（毫秒） */
+const UPDATE_INSTALL_TIMEOUT_MS : number = 3 * 60 * 1000
+/** 旧版约定的故障码：消毒后门未关 */
+const FAULT_DOOR_NOT_CLOSED : number = 1024
+
+/**
+ * WebSocket 业务模块（沿用旧版协议）
+ * 上行消息统一带 type / version / machine_code；下行按 type、status 分发处理
+ */
+class SocketController {
+	/** 状态上报定时器 */
+	private reportTimer : number | null = null
+	/** 延后更新的定时器 */
+	private updateTimer : number | null = null
+	/** 补读设备号的定时器 */
+	private codeTimer : number | null = null
+	/** 正在补读设备号 */
+	private readingCode : boolean = false
+
+	constructor() {}
+
+	/**
+	 * 初始化：在 App.uvue 的 onLaunch 中调用
+	 */
+	init() {
+		socketManager.onOpen = () => {
+			globalState.serviceStatus = true
+			this.send('init')
+			this.send('ad')
+			this.startReport()
+		}
+		socketManager.onClose = () => {
+			globalState.serviceStatus = false
+			this.stopReport()
+		}
+		socketManager.onMessage = (data : UTSJSONObject) => {
+			this.handleMessage(data)
+		}
+		this.waitMachineCode()
+	}
+
+	/** 回到前台：连接已断开时立即重连（后台期间系统可能断开了连接） */
+	onAppShow() {
+		if (!socketManager.connected) this.connectIfReady()
+	}
+
+	/** 销毁：在 App 退出时调用（如果支持） */
+	destroy() {
+		this.stopReport()
+		this.clearUpdateTimer()
+		const codeTimer = this.codeTimer
+		if (codeTimer != null) {
+			clearTimeout(codeTimer)
+			this.codeTimer = null
+		}
+		socketManager.close()
+		socketManager.onOpen = null
+		socketManager.onClose = null
+		socketManager.onMessage = null
+	}
+
+	/**
+	 * 发消息给服务器，自动带上 version 和 machine_code
+	 * @param type 消息类型
+	 * @param extra 附加字段
+	 * @returns 是否发送成功
+	 */
+	send(type : string, extra : UTSJSONObject = {}) : Promise<boolean> {
+		// 字段顺序与旧版一致：{ type, ...extra, version, machine_code }
+		const msg = UTSJSONObject.assign({ type: type }, extra, {
+			version: globalState.appVersion,
+			machine_code: globalState.machineCode,
+		})
+		return socketManager.send(msg)
+	}
+
+	/** 指令执行结果反馈 */
+	feedback(type : string, ok : boolean = true) {
+		this.send('feedback', { data: { status: ok ? 'ok' : 'error', type: type } })
+	}
+
+	/** 设备故障 / 急停 */
+	infault(code : number) {
+		this.send('infault', { error_code: code })
+	}
+
+	/** 剩余时间（秒） */
+	machineTime(time : number) {
+		// 服务器下发的 order_id 是数字，globalState 里存的是字符串，这里还原成数字，与旧版一致
+		const id = globalState.order_id
+		let orderId : any = 0
+		if (id != '') {
+			orderId = /^\d+$/.test(id) ? parseInt(id) : id
+		}
+		this.send('machine_time', { data: { order_id: orderId, time: time } })
+	}
+
+	/**
+	 * 设备号要从串口读到后才能连服务器（服务端按设备号识别机器）。
+	 * 串口已连上但设备号读取失败时，这里定时补读
+	 */
+	private waitMachineCode() {
+		if (globalState.machineCode != '') {
+			// 此时没网的话，等网络恢复时由 onNetworkChange 连接
+			this.connectIfReady()
+			return
+		}
+		if (globalState.serialStatus && !this.readingCode) {
+			this.readingCode = true
+			serialController.readDeviceName().then((code : string | null) => {
+				this.readingCode = false
+			})
+		}
+		this.codeTimer = setTimeout(() => {
+			this.codeTimer = null
+			this.waitMachineCode()
+		}, 3000)
+	}
+
+	/** 有设备号且网络可用时连接服务器（已连接或正在连接时不会重复连接） */
+	private connectIfReady() {
+		if (globalState.machineCode != '' && globalState.networkConnected) {
+			socketManager.connect()
+		}
+	}
+
+	/**
+	 * 网络变化（由 monitor 模块调用，globalState.networkConnected 已更新）：
+	 * 断网时关闭连接，停止无效重连；恢复后立即重连
+	 */
+	onNetworkChange(connected : boolean) {
+		if (connected) {
+			this.connectIfReady()
+		} else {
+			socketManager.close()
+		}
+	}
+
+	/** 下行消息分发 */
+	private handleMessage(data : UTSJSONObject) {
+		const type = data.getString('type') ?? ''
+		const status = data.getString('status') ?? ''
+
+		if (type == 'init') this.handleInit(data)
+		if (type == 'ad') this.handleAd(data)
+
+		if (status == 'needinit') this.handleNeedInit()
+		if (status == 'update') this.handleUpdate(data)
+		if (status == 'paid') this.handlePaid(data)
+		if (status == 'restart') this.handleRestart()
+		if (status == 'clearStorage') this.handleClearStorage()
+		// 与旧版一致：截屏不回 feedback
+		if (status == 'screenshot') screenshotAndUpload()
+	}
+
+	/** init 应答：记录格式化设备号；is_update 为 1 时需要更新 App */
+	private handleInit(data : UTSJSONObject) {
+		console.log('服务器 init 应答', data)
+		const formatCode = data.getString('format_machine_code')
+		if (formatCode != null && formatCode != '') {
+			globalState.formatMachineCode = formatCode
+		}
+		if (`${data.get('is_update')}` == '1') this.handleUpdate(data)
+	}
+
+	/** 广告列表：写入 globalState.adList，由首页的 c-ad 下载并播放 */
+	private handleAd(data : UTSJSONObject) {
+		console.log(`广告原始数据: ${JSON.stringify(data)}`)
+		const list = data.getArray('ad')
+		if (list == null) {
+			console.warn('广告消息里没有 ad 数组字段')
+			return
+		}
+		const adList : AdItem[] = []
+		for (let i = 0; i < list.length; i++) {
+			const raw = list[i]
+			if (!(raw instanceof UTSJSONObject)) {
+				console.warn(`跳过第 ${i} 条广告：不是对象`, raw)
+				continue
+			}
+			const item = raw as UTSJSONObject
+			const src = item.getString('url') ?? item.getString('src') ?? ''
+			if (src == '') {
+				console.warn(`跳过第 ${i} 条广告：没有 url / src 字段: ${JSON.stringify(item)}`)
+				continue
+			}
+			adList.push({
+				id: item.getNumber('id') ?? i,
+				title: item.getString('title') ?? '',
+				src: src,
+				type: item.getString('type') == 'video' ? 'video' : 'image',
+				duration: item.getNumber('duration'),
+			} as AdItem)
+		}
+		console.log(`收到广告 ${adList.length} 条`)
+		globalState.adList = adList
+	}
+
+	/** 服务器要求重新上报设备号：重新从串口读取后再发 init */
+	private async handleNeedInit() {
+		await serialController.readDeviceName()
+		this.send('init')
+	}
+
+	/** 支付完成：记录订单号，按套餐写入洗护模式并启动任务 */
+	private async handlePaid(data : UTSJSONObject) {
+		const level = data.getString('level') ?? ''
+		console.log(`支付完成，套餐: ${level}`, data)
+		globalState.order_id = `${data.get('order_id') ?? ''}`
+		const ok = await serialController.startService(level)
+		this.feedback('ongoing', ok)
+	}
+
+	private handleRestart() {
+		this.feedback('restart')
+		// 等反馈发出去再重启
+		setTimeout(() => {
+			restartApp()
+		}, 500)
+	}
+
+	private handleClearStorage() {
+		this.feedback('clearStorage')
+		uni.clearStorageSync()
+	}
+
+	private handleUpdate(data : UTSJSONObject) {
+		const version = data.getString('version') ?? ''
+		const file = data.getString('file') ?? ''
+		// this.startUpdate(version, file)
+	}
+
+	/** 下载安装包并静默安装；设备不在待机（洗护进行中）时延后再试 */
+	private startUpdate(version : string, file : string) {
+		if (file == '' || globalState.updating) return
+		this.clearUpdateTimer()
+		if ((globalState.deviceData.status as number) != washPhase.POST_STERILIZE_STANDBY) {
+			console.log('设备不在待机状态，5 分钟后再尝试更新')
+			this.updateTimer = setTimeout(() => {
+				this.updateTimer = null
+				this.startUpdate(version, file)
+			}, UPDATE_RETRY_MS)
+			return
+		}
+
+		globalState.updating = true
+		console.log(`开始更新 ${globalState.appVersion} -> ${version}: ${file}`)
+		uni.downloadFile({
+			url: file,
+			success: (res) => {
+				if (res.statusCode != 200) {
+					console.warn(`安装包下载失败，状态码 ${res.statusCode}`)
+					globalState.updating = false
+					return
+				}
+				// 提交成功后系统会结束当前进程并由闹钟重新打开 App；
+				// 安装失败时进程不会被结束，超时后恢复界面，避免一直显示“机器更新中”
+				const ok = silentInstallAndRestart(res.tempFilePath)
+				if (!ok) {
+					globalState.updating = false
+					return
+				}
+				setTimeout(() => {
+					console.warn('已提交安装但 App 未被替换，安装可能失败')
+					globalState.updating = false
+				}, UPDATE_INSTALL_TIMEOUT_MS)
+			},
+			fail: (err) => {
+				console.warn('安装包下载失败', err)
+				globalState.updating = false
+			}
+		})
+	}
+
+	private clearUpdateTimer() {
+		const timerId = this.updateTimer
+		if (timerId != null) {
+			clearTimeout(timerId)
+			this.updateTimer = null
+		}
+	}
+
+	private startReport() {
+		this.stopReport()
+		this.reportTimer = setInterval(() => {
+			this.reportStatus()
+		}, REPORT_INTERVAL_MS)
+	}
+
+	private stopReport() {
+		const timerId = this.reportTimer
+		if (timerId != null) {
+			clearInterval(timerId)
+			this.reportTimer = null
+		}
+	}
+
+	/**
+	 * 定时上报设备状态（沿用旧版协议）：
+	 * - 110 消毒后待机 → complete
+	 * - 120 消毒后门未关 → infault(1024)
+	 * - 其余阶段 → ongoing(阶段值)，同时上报剩余时间；
+	 *   100 故障时额外上报 infault(故障码)，80 烘干后开门时额外上报 complete
+	 * - 剩余时间只上报 D19 总倒计时：旧版只在读 D19 时发 machine_time，
+	 *   开门前消毒（D124）、适应阶段（D125）的阶段倒计时不上报
+	 * - 每次都上报洗护液预警 warning
+	 */
+	private reportStatus() {
+		// 串口没连上时状态不可信，不上报
+		if (!globalState.serialStatus) return
+		const device = globalState.deviceData
+		const status = device.status as number
+
+		if (status == washPhase.POST_STERILIZE_STANDBY) {
+			this.send('complete')
+		} else if (status == washPhase.POST_STERILIZE_DOOR_OPEN_REMINDER) {
+			this.infault(FAULT_DOOR_NOT_CLOSED)
+		} else {
+			if (status == washPhase.FAULT) {
+				this.infault(device.fault)
+			} else if (status == washPhase.DOOR_OPEN_WAITING_FOR_PICKUP) {
+				this.machineTime(0)
+				this.send('complete')
+			} else if (status != washPhase.PRE_STERILIZE && status != washPhase.ADAPTATION_WAIT) {
+				this.machineTime(device.countdownTime)
+			}
+			this.send('ongoing', { status: status })
+		}
+		this.send('warning', { data: { status: device.liquidLevel } })
+	}
+}
+
+export default new SocketController()

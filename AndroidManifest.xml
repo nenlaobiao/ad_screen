@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" 
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"
   package="ming.adscreen">
-	
+
     <!--permissions-->
-		
+
 		<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-		
+		<!--
+			以下为平台签名权限：APK 用设备平台签名重签（scripts/platform-sign.ps1）后由系统授予，普通签名下不生效。
+			不使用 sharedUserId="android.uid.system"：uni-app x 启动时会用到 WebView，系统身份进程禁止使用 WebView 会直接崩溃
+		-->
+		<!-- 静默安装更新 -->
+		<uses-permission android:name="android.permission.INSTALL_PACKAGES" tools:ignore="ProtectedPermissions" />
+		<!-- 重启设备 -->
+		<uses-permission android:name="android.permission.REBOOT" tools:ignore="ProtectedPermissions" />
+		<!-- 截屏（screencap 能截到视频画面） -->
+		<uses-permission android:name="android.permission.READ_FRAME_BUFFER" tools:ignore="ProtectedPermissions" />
+		<!-- 静默安装自身后，由闹钟从后台重新打开 App（Android 10 起限制后台启动界面） -->
+		<uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" tools:ignore="ProtectedPermissions" />
+
     <application>
 		
         <!--meta-data-->

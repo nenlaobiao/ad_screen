@@ -1,0 +1,130 @@
+{
+  "id": "w-tts-speaker",
+  "displayName": "w-tts-speaker",
+  "version": "1.0.1",
+  "description": "跨平台文本转语音(TTS)插件，支持 Android / iOS / 鸿蒙",
+  "keywords": [
+    "tts",
+    "语音播报",
+    "text-to-speech",
+    "w-tts-speaker"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^3.6.8",
+    "uni-app": "^4.01",
+    "uni-app-x": "^4.01"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "contact": {
+      "qq": ""
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "无",
+      "permissions": "<uses-permission android:name=\"android.permission.INTERNET\"/>\n\t<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>\n\t<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>\n\t<uses-permission android:name=\"android.permission.ACCESSIBILITY_SERVICE\"/>\n\t<queries>\n\t\t<intent>\n\t\t\t<action android:name=\"android.intent.action.TTS_SERVICE\" />\n\t\t</intent>\n\t</queries>"
+    },
+    "npmurl": "",
+    "darkmode": "x",
+    "i18n": "x",
+    "widescreen": "x"
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "x",
+        "aliyun": "x",
+        "alipay": "x"
+      },
+      "client": {
+        "uni-app": {
+          "vue": {
+            "vue2": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            },
+            "vue3": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            }
+          },
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          },
+          "app": {
+            "vue": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            },
+            "nvue": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            },
+            "android": {
+                "extVersion": "1.0.0",
+                "minVersion": "21"
+            },
+            "ios": {
+                "extVersion": "1.0.0",
+                "minVersion": "12"
+            },
+            "harmony": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            }
+          },
+          "mp": {
+            "weixin": "x",
+            "alipay": "x",
+            "toutiao": "x",
+            "baidu": "x",
+            "kuaishou": "x",
+            "jd": "x",
+            "harmony": "x",
+            "qq": "x",
+            "lark": "x"
+          },
+          "quickapp": {
+            "huawei": "x",
+            "union": "x"
+          }
+        },
+        "uni-app-x": {
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          },
+          "app": {
+            "android": {
+                "extVersion": "1.0.0",
+                "minVersion": "21"
+            },
+            "ios": {
+                "extVersion": "1.0.0",
+                "minVersion": "12"
+            },
+            "harmony": {
+                "extVersion": "1.0.0",
+                "minVersion": ""
+            }
+          },
+          "mp": {
+            "weixin": "x"
+          }
+        }
+      }
+    }
+  }
+}

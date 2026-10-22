@@ -13,7 +13,7 @@
 			当前时间：{{nowTime}}
 		</text>
 		<text class="statusbar-text">
-			服务连接状态：{{globalState.serviceStatus ? '已连接':'连接中'}}
+			服务连接状态：{{!globalState.networkConnected ? '网络故障' : (globalState.serviceStatus ? '已连接':'连接中')}}
 		</text>
 		<text class="statusbar-text">
 			串口连接状态：{{globalState.serialStatus ? '已连接':'连接中'}}
@@ -25,7 +25,7 @@
 			宠物体重：{{globalState.deviceData.petWeight}}KG
 		</text>
 		<text class="statusbar-text">
-			设备码：{{globalState.machineCode}}
+			设备码：{{globalState.formatMachineCode != '' ? globalState.formatMachineCode : globalState.machineCode}}
 		</text>
 	</view>
 </template>

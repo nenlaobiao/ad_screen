@@ -1,0 +1,87 @@
+import { UTSiOS } from "DCloudUTSFoundation"
+import { AVSpeechSynthesizer, AVSpeechUtterance, AVSpeechSynthesisVoice, AVSpeechUtteranceDefaultSpeechRate, AVSpeechUtteranceMinimumSpeechRate, AVSpeechUtteranceMaximumSpeechRate, AVSpeechBoundary, AVAudioSession } from "AVFoundation"
+/* 引入 interface.uts 文件中定义的变量 */
+import { TSpeakResult, TtsSpeakerOptions, TSpeechOptions } from '../interface.uts';
+
+export class TtsSpeaker {
+	speaker : AVSpeechSynthesizer = new AVSpeechSynthesizer();
+	audioSession = new AVAudioSession.sharedInstance() //语音引擎
+	language: string = "zh-CN"
+	defaultSpeechRate : number = 1.0 // 默认语速（倍率），1.0 为正常语速
+	alwaysPlay : boolean = false // true=静音也出声(playback)，false=跟随静音键(ambient)
+	constructor(options : TtsSpeakerOptions) {
+		this.language = {
+			"ZH": "zh-CN",
+			"EN": "en-US"
+		}[options.language] as string
+		this.defaultSpeechRate = options.speechRate ?? 1.0
+		this.alwaysPlay = options.alwaysPlay ?? false
+		const { callback } = options
+		const callbackFunc = function (params : TSpeakResult) {
+			callback?.(params)
+		}
+		// this.speaker.delegate = new SpeechDelegate()
+		try {
+
+			callbackFunc({
+				success: 0,
+				message: "初始化成功"
+			})
+		} catch (error) {
+			//TODO handle the exception
+			callbackFunc({
+				success: -1,
+				message: error.toString()
+			})
+		}
+
+	}
+	/**
+	 * 设置默认语速（倍率），1.0 为正常，范围建议 0.5~2.0，越界自动 clamp
+	 */
+	setSpeechRate(rate : number) {
+		this.defaultSpeechRate = rate
+	}
+
+	/**
+	 * @param msg 播报文本
+	 * @param options 可选，单次临时语速 { speechRate }
+	 * 注意：不能声明为 async —— iOS 的 UTS 异步方法基于协程且仅 iOS 13+ 支持（本插件最低 iOS 12），
+	 * 且 AVSpeechSynthesizer 等 AVFoundation API 必须在主线程调用
+	 */
+	speechMessage(msg: string, options : TSpeechOptions | null = null) {
+		try {
+			// 音频会话类别：alwaysPlay=true 用 playback（静音也出声），false 用 ambient（跟随静音键、可与其它音频共存）
+			if (this.alwaysPlay) {
+				UTSiOS.try(this.audioSession.setCategory(AVAudioSession.Category.playback))
+			} else {
+				UTSiOS.try(this.audioSession.setCategory(AVAudioSession.Category.ambient))
+			}
+			// 激活音频会话（speak 启动的前提，AVSpeechSynthesizer 不会自动激活）
+			UTSiOS.try(this.audioSession.setActive(true))
+			let utterance = new AVSpeechUtterance(string = msg);
+			utterance.voice = new AVSpeechSynthesisVoice(language = this.language)
+			// 倍率换算为 iOS 速率：默认 0.5 × 倍率，clamp 到 [min, max]
+			const factor : Float = (options != null && options.speechRate != null ? options.speechRate : this.defaultSpeechRate).toFloat()
+			const min : Float = AVSpeechUtteranceMinimumSpeechRate
+			const max : Float = AVSpeechUtteranceMaximumSpeechRate
+			let rate : Float = AVSpeechUtteranceDefaultSpeechRate * factor
+			if (rate < min) {
+				rate = min
+			}
+			if (rate > max) {
+				rate = max
+			}
+			utterance.rate = rate
+			this.speaker.speak(utterance);
+		} catch (error) {
+			//TODO handle the exception
+			console.log('speechMessage errror', error.toString())
+		}
+
+	}
+	// 停止
+	stopSpeech() {
+		this.speaker.stopSpeaking(at = AVSpeechBoundary.immediate)
+	}
+}

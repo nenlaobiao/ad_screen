@@ -3,6 +3,7 @@
 	 * 洗宠机状态显示
 	 */
 	import { State, StatusDataUrl } from "./types.uts"
+	import { formatSeconds } from "@/utils/tools.uts"
 	const props = defineProps({
 		status: {
 			type: String,
@@ -12,7 +13,19 @@
 			type: String,
 			default: ''
 		},
+		/** 提示语，不为空时覆盖各状态的默认提示 */
+		tips: {
+			type: String,
+			default: ''
+		},
+		/** 倒计时秒数，小于 0 不显示 */
+		seconds: {
+			type: Number,
+			default: -1
+		},
 	})
+	const showTime = computed<boolean>(() : boolean => (props.seconds as number) >= 0)
+	const remainingTime = computed<string>(() : string => formatSeconds(props.seconds as number))
 	const state = reactive<State>({
 	})
 	const statusDataUrl = computed<StatusDataUrl>(() => {
@@ -20,33 +33,45 @@
 		let illus = '/static/pet/update.png'
 		let tips = ''
 		switch (props.status) {
+			case 'paid': // 已支付，等待设备启动
+				illus = '/static/pay.png'
+				break
 			case 'bathe': // 放入宠物
 				illus = '/static/pet/bathe.png'
 				tips = '舱门已打开请放入宠物'
+				break
 			case 'takeout': // 取出宠物
 				illus = '/static/pet/takeout.png'
 				tips = '舱门已打开请带出宠物'
+				break
 			case 'dry': // 烘干
 				illus = '/static/pet/dry.png'
 				tips = '正在烘干中...'
+				break
 			case 'clean': // 消毒
 				illus = '/static/pet/clean.png'
 				tips = '机器消毒中...'
+				break
 			case 'update': // 更新
 				illus = '/static/pet/update.png'
 				tips = '机器更新中...'
+				break
 			case 'abnormal':
 				illus = '/static/pet/abnormal.png'
 				tips = '请关门消毒后再使用,请不要放入宠物关门'
+				break
 			case 'error':
 				illus = '/static/pet/error.png'
 				background = '/static/BG/error.png'
 				tips = props.errTips != '' ? props.errTips : '暂停使用'
+				break
 			case 'emergency':
 				illus = '/static/pet/error.png'
 				background = '/static/BG/error.png'
 				tips = props.errTips != '' ? props.errTips : '紧急停止中'
+				break
 		}
+		if (props.tips != '') tips = props.tips
 		return {
 			background,
 			illus,
@@ -61,6 +86,8 @@
 		<!-- 提示语 -->
 		<text :class="['status-card-tips',{'error-tips': ['emergency','error'].includes(props.status)}]"
 			v-if="statusDataUrl.tips != ''">{{statusDataUrl.tips}}</text>
+		<!-- 倒计时 -->
+		<text class="status-card-time" v-if="showTime">{{remainingTime}}</text>
 		<!-- 状态插画 -->
 		<image class="status-card-illus" v-if="statusDataUrl.illus != ''" :src="statusDataUrl.illus" />
 		<text class="emergency-tips" v-if="props.status == 'emergency'">注意：请取出宠物！关门后开始消毒</text>
@@ -101,6 +128,13 @@
 		.error-tips {
 			color: #fff !important;
 			font-size: 24rpx;
+		}
+
+		.status-card-time {
+			margin-top: 4rpx;
+			font-size: 24rpx;
+			font-weight: bold;
+			color: #2E87B5;
 		}
 
 		.status-card-illus {

@@ -1,0 +1,37 @@
+import { globalState } from "@/store/index.uts"
+import { saveScreenshot, uploadFile } from "@/api/index.uts"
+import { takeScreenshot } from "@/utils/native.uts"
+
+/** 正在截屏上传，避免重复触发 */
+let busy = false
+
+/**
+ * 远程截屏：截取整个屏幕 → 上传 → 保存截图记录，完成后删除本地文件
+ * WebSocket 的 screenshot 指令和巡检接口的 is_screenshot 都走这里
+ * @returns 是否成功
+ */
+export async function screenshotAndUpload() : Promise<boolean> {
+	if (busy) return false
+	busy = true
+	let ok = false
+	const path = await takeScreenshot()
+	if (path != null) {
+		const image = await uploadFile(path)
+		if (image != null) {
+			try {
+				await saveScreenshot<any>({ machine_code: globalState.machineCode, image: image })
+				ok = true
+			} catch (e) {
+				console.warn('保存截图记录失败', e)
+			}
+		}
+		try {
+			uni.getFileSystemManager().unlinkSync(path)
+		} catch (e) {
+			console.warn('删除截图文件失败', e)
+		}
+	}
+	busy = false
+	console.log(`远程截屏${ok ? '成功' : '失败'}`)
+	return ok
+}

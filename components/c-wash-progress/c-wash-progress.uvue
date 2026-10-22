@@ -2,11 +2,13 @@
 	/**
 	 * 洗宠机步骤显示
 	 */
-	import { State, WashMode } from "./types.uts"
+	import { State, WashMode, WashModeBasis } from "./types.uts"
+	import { formatSeconds } from "@/utils/tools.uts"
 	const props = defineProps({
-		progress: {
-			type: String,
-			default: ''
+		/** 当前洗护阶段 (D22)，到达及已完成的步骤高亮 */
+		status: {
+			type: Number,
+			default: 0
 		},
 		seconds: {
 			type: Number,
@@ -61,15 +63,22 @@
 	}
 	const state = reactive<State>({
 	})
-	const remainingTime = computed<string>(() => {
-		let seconds = Number.from(props.seconds as number)
-		if (seconds < 0) seconds = 0; // 防止负数
-		const minutes = Math.floor(seconds / 60);
-		const secs = seconds % 60;
-		// 补零显示
-		const mm = minutes < 10 ? `0${minutes}` : `${minutes}`
-		const ss = secs < 10 ? `0${secs}` : `${secs}`
-		return `${mm}:${ss}`;
+	const remainingTime = computed<string>(() : string => formatSeconds(props.seconds as number))
+	/** 按当前阶段标记步骤：当前步骤及之前的步骤都打勾（沿用旧版） */
+	const steps = computed<WashModeBasis[]>(() : WashModeBasis[] => {
+		const status = props.status as number
+		const current = washMode.basis.findIndex((item : WashModeBasis) : boolean => item.status == status)
+		const list : WashModeBasis[] = []
+		for (let i = 0; i < washMode.basis.length; i++) {
+			const item = washMode.basis[i]
+			list.push({
+				title: item.title,
+				status: item.status,
+				icon: item.icon,
+				afoot: i <= current,
+			} as WashModeBasis)
+		}
+		return list
 	})
 </script>
 
@@ -80,14 +89,14 @@
 		<text class="wash-progress-time">{{remainingTime}}</text>
 		<text class="wash-progress-tips">为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
 		<view class="progresBox">
-			<view :class="['progresBox-item',{afoot:item.afoot}]" v-for="(item,index) in washMode.basis">
+			<view :class="['progresBox-item',{afoot:item.afoot}]" v-for="(item,index) in steps">
 				<image class="img" :src="item.icon" />
 				<text class="title">{{item.title}}</text>
 				<view class="indexBox">
 					<image class="icon" v-if="item.afoot" src="/static/icon/checkmarkempty.png" />
 					<text class="index" v-else>{{index + 1}}</text>
 				</view>
-				<view :class="['line',{linelast: index == (washMode.basis.length - 1)}]" />
+				<view :class="['line',{linelast: index == (steps.length - 1)}]" />
 			</view>
 		</view>
 		<text class="wash-progress-error">紧急情况请拍按右上方急停按钮</text>

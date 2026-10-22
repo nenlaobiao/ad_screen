@@ -1,0 +1,135 @@
+/**
+ * 鸿蒙（HarmonyOS）平台 TTS 实现
+ * 基于 @kit.CoreSpeechKit（HarmonyOS NEXT / API 12+）
+ * 参考 DCloud lime-tts 插件的 UTS 鸿蒙实践写法
+ */
+import { textToSpeech } from '@kit.CoreSpeechKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+import { audio } from '@kit.AudioKit';
+import { TSpeakResult, TtsSpeakerOptions, TSpeechOptions } from '../interface.uts';
+
+export class TtsSpeaker {
+    private engine : textToSpeech.TextToSpeechEngine | null = null;
+    private language : string = "zh-CN";
+    private isInitialized : boolean = false;
+    private defaultSpeechRate : number = 1.0; // 默认语速（倍率），1.0 为正常语速
+    private alwaysPlay : boolean = false; // true=静音也播报，false=静音状态下跳过播报
+
+    constructor(options : TtsSpeakerOptions) {
+        this.language = {
+            "ZH": "zh-CN",
+            "EN": "en-US"
+        }[options.language] as string
+        this.defaultSpeechRate = options.speechRate ?? 1.0
+        this.alwaysPlay = options.alwaysPlay ?? false
+
+        const { callback } = options
+
+        try {
+            // 创建 TTS 引擎（异步）
+            const params : textToSpeech.CreateEngineParams = {
+                language: this.language,
+                person: 0,
+                online: 1
+            }
+            textToSpeech.createEngine(params).then((res : textToSpeech.TextToSpeechEngine) => {
+                this.engine = res
+                // 设置播报回调
+                this.engine.setListener(this.buildListener())
+                this.isInitialized = true
+                callback?.({ success: 0, message: 'TTS 初始化成功' });
+            }).catch((err : BusinessError) => {
+                callback?.({ success: -1, message: 'TTS 初始化失败: ' + err.message });
+            });
+        } catch (error) {
+            callback?.({ success: -1, message: 'TTS 初始化失败: ' + error });
+        }
+    }
+
+    /**
+     * 构造 SpeakListener 播报回调
+     */
+    private buildListener() : textToSpeech.SpeakListener {
+        return {
+            onStart(requestId : string, response : textToSpeech.StartResponse) {
+            },
+            onComplete(requestId : string, response : textToSpeech.CompleteResponse) {
+            },
+            onStop(requestId : string, response : textToSpeech.StopResponse) {
+            },
+            onData(requestId : string, audio : ArrayBuffer, response : textToSpeech.SynthesisResponse) {
+            },
+            onError(requestId : string, errorCode : number, errorMessage : string) {
+                console.error('TTS 错误: ' + errorMessage);
+            }
+        }
+    }
+
+    /**
+     * 设置默认语速（倍率），1.0 为正常，范围建议 0.5~2.0，越界自动 clamp
+     */
+    setSpeechRate(rate : number) {
+        this.defaultSpeechRate = rate;
+    }
+
+    /**
+     * 判断设备是否处于静音状态（铃声静音/振动）
+     * 注：getRingerMode 为异步返回 Promise<AudioRingMode>，值：SILENT=0, VIBRATE=1, NORMAL=2
+     */
+    private async isDeviceSilent() : Promise<boolean> {
+        try {
+            const audioManager = audio.getAudioManager()
+            const mode = await audioManager.getRingerMode()
+            // 非正常模式即静音/振动：RINGER_MODE_SILENT / RINGER_MODE_VIBRATE
+            if (mode !== audio.AudioRingMode.RINGER_MODE_NORMAL) {
+                return true
+            }
+        } catch (error) {
+            // 检测异常时视为非静音
+        }
+        return false
+    }
+
+    /**
+     * @param msg 播报文本
+     * @param options 可选，单次临时语速 { speechRate }
+     */
+    async speechMessage(msg : string, options : TSpeechOptions | null = null): Promise<void> {
+        // 未开启 alwaysPlay 且设备处于静音状态时，跳过播报
+        if (!this.alwaysPlay && await this.isDeviceSilent()) {
+            console.log('TTS: 设备处于静音状态，已跳过播报（设置 alwaysPlay=true 可强制播报）');
+            return;
+        }
+        if (this.engine == null || !this.isInitialized) {
+            console.error('TTS 引擎未初始化');
+            return;
+        }
+        const target = options != null && options.speechRate != null ? options.speechRate : this.defaultSpeechRate
+        const extraParams : ESObject = {
+            speed: clampRate(target),
+            volume: 1,
+            pitch: 1,
+            languageContext: this.language
+        } as ESObject
+        try {
+            const speakParams : textToSpeech.SpeakParams = {
+                requestId: Date.now().toString(),
+                extraParams: extraParams
+            }
+            this.engine.speak(msg, speakParams);
+        } catch (error) {
+            console.error('语音播报错误:', error);
+        }
+    }
+
+    stopSpeech() : void {
+        if (this.engine != null) {
+            this.engine.stop();
+        }
+    }
+}
+
+// 语速倍率 clamp 到 [0.5, 2.0]
+function clampRate(rate : number) : number {
+    return Math.min(2.0, Math.max(0.5, rate));
+}

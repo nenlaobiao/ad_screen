@@ -9,3 +9,7 @@ deploy.sh
 yarn.lock
 package-lock.json
 *.keystore
+
+# 平台签名私钥：只放本机，绝不能提交（scripts/platform-sign.ps1 使用）
+scripts/keys/
+*.pk8

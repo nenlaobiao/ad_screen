@@ -1,0 +1,18 @@
+export type TSpeakResult = {  
+    success : number  
+    message : string  
+}  
+
+export type TSpeakInitParams = {  
+    lang : string  
+    country : string  
+    speechRate?: number  
+}
+
+export type TtsCallback = (res : TSpeakResult) => void
+
+// engine（ad_screen 本地修改，仅 Android）：指定 TTS 引擎包名，如讯飞 "com.iflytek.speechcloud"；不传用系统默认引擎
+export type TtsSpeakerOptions = { callback?: TtsCallback | null, language: "ZH" | "EN" | string, speechRate?: number, alwaysPlay?: boolean, engine?: string }
+
+// 单次播报选项：支持临时覆盖语速
+export type TSpeechOptions = { speechRate?: number }

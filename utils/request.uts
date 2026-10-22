@@ -11,6 +11,8 @@ export type ResponseData<T = any> = {
 // 额外的自定义参数
 export type Custom = {
 	showLoading ?: boolean;
+	/** 请求失败时不弹“网络连接失败”提示（用于定时轮询） */
+	silent ?: boolean;
 }
 
 // Loading全局实例
@@ -71,7 +73,7 @@ export function request<T = any>(config : RequestOptions<T>, custom : Custom = {
 			},
 
 			fail: (err : RequestFail) => {
-				showMsg('网络连接失败，请稍后重试');
+				if (custom.silent != true) showMsg('网络连接失败，请稍后重试');
 				reject(err);
 			},
 

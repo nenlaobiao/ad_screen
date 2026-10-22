@@ -1,78 +1,314 @@
 import { globalState } from "@/store/index.uts"
+import type { DeviceStatus } from "@/store/types.uts"
 import modbusQueue from './queue.uts'
 import serialManager from './serial.uts'
+import { registerMap, washPhase } from './types.uts'
+import { buildReadFrame, buildWriteFrame, parseFloat32, parseModbusString, parseReadRegisters } from './utils.uts'
+
+/** 轮询帧覆盖范围：D19（总时间倒计时）~ D53，共 35 个寄存器 */
+const POLL_COUNT : number = 35
+/** 设备号占用的寄存器数量（D700 起） */
+const DEVICE_NAME_COUNT : number = 10
+/** 没找到设备时，隔多久重新扫描串口（毫秒） */
+const CONNECT_RETRY_MS : number = 3000
+/** 启动任务 (D20) 写入值 */
+const TASK_WASH : number = 0x6F
+const TASK_DRY : number = 0xFF
+/** 洗护模式 (D16) 写入值 */
+const MODE_ENHANCE : number = 1
+const MODE_BASIS : number = 3
+/** 本地缓存：最近一次启动的套餐（dry / basis / enhance） */
+export const STORAGE_WASH_MODE : string = 'washMode'
+
+/** 开门前消毒、适应阶段的倒计时不在 D19，返回对应寄存器；其余阶段返回 null */
+function stageCountdownAddress(status : number) : number | null {
+	if (status == washPhase.PRE_STERILIZE) return registerMap.STERILIZE_COUNTDOWN
+	if (status == washPhase.ADAPTATION_WAIT) return registerMap.ADAPT_COUNTDOWN
+	return null
+}
+
+/** 校验洗护阶段值是否合法（与 store/types.uts 的 DeviceStatus 保持一致） */
+function toDeviceStatus(value : number) : DeviceStatus | null {
+	switch (value) {
+		case 5: return 5
+		case 10: return 10
+		case 15: return 15
+		case 20: return 20
+		case 30: return 30
+		case 40: return 40
+		case 50: return 50
+		case 60: return 60
+		case 70: return 70
+		case 80: return 80
+		case 90: return 90
+		case 100: return 100
+		case 110: return 110
+		case 120: return 120
+	}
+	return null
+}
 
 /**
  * 串口总控制模块
- * 负责对接 UI 交互与底层的串口队列
+ * 负责连接管理、状态轮询，并对 UI 提供按地址读写寄存器的接口
  */
 class Controller {
-	
+	/** 轮询定时器 ID（null 表示未在轮询） */
+	private pollTimer : number | null = null
+	/** 重新扫描串口的定时器 ID */
+	private connectTimer : number | null = null
+	/** 每次读到洗护阶段时回调（每轮轮询一次，不只是变化时） */
+	public onStatus : ((status : number) => void) | null = null
+
 	constructor() {}
 
 	/**
-	 * 初始化：建议在 App.uvue 的 onLaunch 或 onShow 中调用
+	 * 初始化：在 App.uvue 的 onLaunch 中调用
 	 */
 	init() {
 		console.log("Serial Controller Init")
-		
-		// 1. 注册队列的回调，处理底层返回的数据
-		modbusQueue.registerCallback((cmd : string, res : string, success : boolean) => {
-			this.handleResponse(cmd, res, success)
-		})
-
-		// 2. 连接串口
-		serialManager.autoConnect()
-
-		// 3. 启动队列监听
-		// 开启轮询检测连接状态，一旦连接成功立即启动队列消费
-		this.checkConnectionAndStart()
-	}
-
-	/**
-	 * 轮询检查串口连接状态，连接成功后启动队列
-	 */
-	private checkConnectionAndStart() {
-		if (serialManager.connecting) {
-			modbusQueue.startListener()
-			console.log("Serial Queue Listener Started")
-		} else {
-			// 未连接则每秒检查一次，直到连接成功
-			setTimeout(() => {   
-				this.checkConnectionAndStart()
-			}, 1000)
+		// 连续通信失败时断开并重新扫描串口
+		modbusQueue.onOffline = () => {
+			this.disconnect()
+			this.connect()
 		}
+		this.connect()
 	}
 
 	/**
-	 * 销毁/清理：建议在 App.uvue 的 onExit 调用（如果支持）
+	 * 连接串口：没找到设备会定时重新扫描，连上后读取设备号并开始轮询
 	 */
-	destroy() {
-		modbusQueue.clear()
-		modbusQueue.cancelCallback()
-		// 如果需要完全断开串口，可调用 serialManager.close()
-	}
-	
-	/**
-	 * 统一处理业务逻辑：将 Hex 数据解析为业务状态
-	 */
-	private handleResponse(cmd : string, res : string, success : boolean) {
-		if (!success) {
-			console.warn(`指令执行失败或超时: ${cmd}`)
+	async connect() {
+		this.clearConnectTimer()
+		const ok = await serialManager.autoConnect()
+		if (!ok) {
+			this.connectTimer = setTimeout(() => {
+				this.connectTimer = null
+				this.connect()
+			}, CONNECT_RETRY_MS)
 			return
 		}
+		globalState.serialStatus = true
+		console.log("Serial Connected")
+		this.readDeviceName()
+		this.startPolling()
+	}
 
-		// console.log(`指令成功: ${cmd} -> 响应: ${res}`)
-
-		// TODO: 在这里根据 cmd 或 res 更新 globalState
-		// 例如：globalState.deviceStatus = parseStatus(res)
+	/** 断开串口：停止轮询、清空队列并关闭端口 */
+	disconnect() {
+		this.clearConnectTimer()
+		this.stopPolling()
+		modbusQueue.clear()
+		serialManager.close()
+		globalState.serialStatus = false
 	}
 
 	/**
-	 * 发送指令 (UI调用入口)
+	 * 销毁：在 App 退出时调用（如果支持）
 	 */
-	send(hex : string) {
-		modbusQueue.push(hex)
+	destroy() {
+		modbusQueue.onOffline = null
+		this.disconnect()
+	}
+
+	/**
+	 * 启动状态轮询：每 intervalMs 读取一次 D19~D53
+	 * （总倒计时 / 相位 / 故障 / 温度 / 重量 / 液位），结果写入 globalState 驱动 UI 刷新。
+	 * 队列繁忙（如响应超时重试中）时跳过本轮，避免任务堆积。
+	 */
+	startPolling(intervalMs : number = 1000) {
+		if (this.pollTimer != null) return
+		this.pollTimer = setTimeout(() => {
+			this.pollTimer = null
+			if (modbusQueue.isIdle()) {
+				this.pollStatus()
+			}
+			// 继续下一轮
+			this.startPolling(intervalMs)
+		}, intervalMs)
+	}
+
+	/** 读一轮状态；开门前消毒、适应阶段再补读各自的倒计时寄存器 */
+	private async pollStatus() {
+		const regs = await this.read(registerMap.TOTAL_TIME_COUNTDOWN, POLL_COUNT)
+		if (regs == null) return
+		const address = stageCountdownAddress(globalState.deviceData.status as number)
+		if (address != null) {
+			await this.read(address, 1)
+		}
+	}
+
+	/** 停止轮询 */
+	stopPolling() {
+		const timerId = this.pollTimer
+		if (timerId != null) {
+			clearTimeout(timerId)
+			this.pollTimer = null
+		}
+	}
+
+	/**
+	 * 读取连续寄存器（FC03），读到的业务字段会同步写入 globalState
+	 * @returns 寄存器原始值；失败返回 null
+	 */
+	async read(start : number, count : number) : Promise<number[] | null> {
+		const res = await modbusQueue.request(buildReadFrame(start, count))
+		if (res == null) return null
+		const regs = parseReadRegisters(res)
+		if (regs.length == 0) {
+			console.warn(`读响应解析失败: ${res}`)
+			return null
+		}
+		this.applyRegisters(start, regs)
+		return regs
+	}
+
+	/**
+	 * 写单个寄存器（FC06）
+	 * @returns 是否写入成功（收到设备回显）
+	 */
+	async write(address : number, value : number) : Promise<boolean> {
+		const res = await modbusQueue.request(buildWriteFrame(address, value))
+		const ok = res != null
+		console.log(`写寄存器 D${address} = ${value}：${ok ? '成功' : '失败'}`)
+		return ok
+	}
+
+	/**
+	 * 按套餐启动服务（支付完成、debug 模式点击支付码都走这里）
+	 * - dry 烘干：写启动任务 D20 = 0xFF
+	 * - basis 普洗 / enhance 精洗：先写洗护模式 D16，再写启动任务 D20 = 0x6F
+	 * @returns 启动指令是否全部写入成功
+	 */
+	async startService(level : string) : Promise<boolean> {
+		const device = globalState.deviceData
+		const status = device.status as number
+		console.log(`启动服务，套餐: ${level}，当前洗护阶段: ${status}，串口: ${globalState.serialStatus ? '已连接' : '未连接'}`)
+		if (status != washPhase.POST_STERILIZE_STANDBY) {
+			console.warn('设备不在待机（110）状态，PLC 可能不会响应启动指令')
+		}
+
+		let ok = false
+		if (level == 'dry') {
+			device.mode = 'dry'
+			ok = await this.write(registerMap.START_TASK, TASK_DRY)
+		} else if (level == 'basis' || level == 'enhance') {
+			let mode = MODE_BASIS
+			if (level == 'enhance') {
+				device.mode = 'enhance'
+				mode = MODE_ENHANCE
+			} else {
+				device.mode = 'basis'
+			}
+			ok = await this.write(registerMap.WASH_MODE, mode)
+			if (ok) ok = await this.write(registerMap.START_TASK, TASK_WASH)
+		} else {
+			console.warn(`未知套餐: ${level}`)
+		}
+		console.log(`启动指令${ok ? '已写入' : '写入失败'}，套餐: ${level}`)
+		if (ok) {
+			// 显示“已支付”，直到设备离开待机；套餐类型存本地，App 重启后仍能区分是否单独烘干
+			globalState.paidWaiting = true
+			uni.setStorageSync(STORAGE_WASH_MODE, level)
+		}
+		return ok
+	}
+
+	/** 读取设备号（D700 起 10 个寄存器），成功后回填 globalState.machineCode */
+	async readDeviceName() : Promise<string | null> {
+		const res = await modbusQueue.request(buildReadFrame(registerMap.DEVICE_NAME, DEVICE_NAME_COUNT))
+		if (res == null) return null
+		const code = parseModbusString(res)
+		if (code.length > 0) {
+			globalState.machineCode = code
+		}
+		return code
+	}
+
+	private clearConnectTimer() {
+		const timerId = this.connectTimer
+		if (timerId != null) {
+			clearTimeout(timerId)
+			this.connectTimer = null
+		}
+	}
+
+	/**
+	 * 把一段读到的寄存器归约到 globalState。
+	 * start 为本段起始地址，不在本段范围内的字段自动跳过，
+	 * 所以单寄存器读取与整段轮询都能正确落位。
+	 */
+	private applyRegisters(start : number, regs : number[]) {
+		/** 取绝对地址的寄存器值（不在本次读取范围内返回 null） */
+		const readU16 = (address : number) : number | null => {
+			const index = address - start
+			if (index < 0 || index >= regs.length) return null
+			return regs[index]
+		}
+		/** 取连续两个寄存器（高字在前）重组为 float32 */
+		const readFloat = (address : number) : number | null => {
+			const high = readU16(address)
+			const low = readU16(address + 1)
+			if (high == null || low == null) return null
+			return parseFloat32(high, low)
+		}
+
+		const device = globalState.deviceData
+
+		// ---- D22 洗护阶段 ----
+		const phase = readU16(registerMap.WASH_PHASE)
+		// console.log('phase',phase)
+		if (phase != null) {
+			const status = toDeviceStatus(phase)
+			if (status != null) {
+				device.status = status
+			} else {
+				console.warn(`未知的洗护阶段值: ${phase}`)
+			}
+		}
+
+		// ---- D24 故障码（位标志，0 为正常）----
+		const fault = readU16(registerMap.FAULT_REGISTER)
+		if (fault != null) {
+			device.fault = fault
+		}
+
+		// ---- D48 洗护液预警 ----
+		const liquid = readU16(registerMap.LIQUID_LEVEL_STATUS)
+		if (liquid != null) {
+			device.liquidLevel = liquid
+		}
+
+		// ---- 倒计时（单位：S）：开门前消毒读 D124，适应阶段读 D125，其余阶段读 D19 总倒计时 ----
+		// 洗护阶段已在上面先更新，这里按最新阶段选寄存器，避免整段轮询的 D19 覆盖阶段倒计时
+		const stageAddress = stageCountdownAddress(device.status as number)
+		const countdown = readU16(stageAddress ?? registerMap.TOTAL_TIME_COUNTDOWN)
+		if (countdown != null) {
+			device.countdownTime = countdown
+		}
+
+		// ---- D34 / D36 温度（float，各占两个寄存器）----
+		// D34 笼内温度、D36 管路（水）温度，与旧项目实机一致
+		const water = readFloat(registerMap.WATER_TEMPERATURE)
+		if (water != null) {
+			device.water = water
+		}
+		const cage = readFloat(registerMap.ROOM_TEMPERATURE)
+		if (cage != null) {
+			device.cage = cage
+		}
+
+		// ---- D46 重量（float，占两个寄存器）----
+		const weight = readFloat(registerMap.WEIGHT)
+		if (weight != null) {
+			device.petWeight = weight
+		}
+
+		// 本段读到了洗护阶段：其余字段都更新完后再通知，回调里拿到的是同一轮的数据
+		if (phase != null) {
+			const callback = this.onStatus
+			if (callback != null) callback(device.status as number)
+		}
 	}
 }
 export default new Controller()

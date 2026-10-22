@@ -82,8 +82,15 @@ function getDownloadList(list : AdItem[], localFileNames : string[]) : AdItem[] 
 /** 排序合并缓存与新下载的数据 */
 function mergeAndSort(list : AdItem[], allFiles : dFile[]) : dFile[] {
 	const sortMap = new Map<string, number>()
+	const dataMap = new Map<string, AdItem>()
 	list.forEach((item, index) => {
 		sortMap.set(getFileName(item.src), index)
+		dataMap.set(getFileName(item.src), item)
+	})
+	// 已缓存的文件用最新下发的数据（duration、标题等可能有变化）
+	allFiles.forEach((file) => {
+		const latest = dataMap.get(file.fileName)
+		if (latest != null) file.data = latest
 	})
 	return allFiles.sort((a, b) => {
 		return (sortMap.get(a.fileName) ?? Infinity) - (sortMap.get(b.fileName) ?? Infinity)

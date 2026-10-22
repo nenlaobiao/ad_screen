@@ -13,7 +13,8 @@
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8",
 		"pageOrientation":"landscape",
-		"hideStatusBar":"true",
+		"hideStatusBar": true,
+		"hideBottomNavigationIndicator": true,
 		"navigationStyle":"custom"
 	},
 	"uniIdRouter": {}

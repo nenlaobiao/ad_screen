@@ -1,3 +1,10 @@
+import type { AdItem } from '@/pages/index/types.uts'
+
+/**
+ * 洗护阶段 (D22) 取值
+ */
+export type DeviceStatus = 5 | 10 | 15 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 | 110 | 120
+
 /**
  * 设备状态
  */
@@ -5,7 +12,7 @@ export type DeviceData = {
 	/** 洗护模式 */
 	mode : 'dry' | 'basis' | 'enhance',
 	/** 洗宠机状态 */
-	status : 5 | 10 | 15 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 | 110 | 120,
+	status : DeviceStatus,
 	/** 室温 */
 	cage : number,
 	/** 水温 */
@@ -14,6 +21,10 @@ export type DeviceData = {
 	petWeight : number,
 	/** 倒计时 */
 	countdownTime : number,
+	/** 故障码 (D24 位标志，0 为正常) */
+	fault : number,
+	/** 洗护液预警 (D48) */
+	liquidLevel : number,
 }
 
 /**
@@ -35,5 +46,17 @@ export type GlobalState = {
 	/** 服务器连接状态 */
 	serviceStatus : boolean,
 	/** 当前时间戳 */
-	nowTime : number
+	nowTime : number,
+	/** 服务器下发的广告列表 */
+	adList : AdItem[],
+	/** 网络是否可用 */
+	networkConnected : boolean,
+	/** App 是否在前台 */
+	appActive : boolean,
+	/** 已发出启动指令、等待设备离开待机（显示“已支付”） */
+	paidWaiting : boolean,
+	/** 适应阶段后又回到开门阶段：笼内已有宠物，提示不要再放 */
+	takePet : boolean,
+	/** 服务器 init 下发的格式化设备号（状态栏优先显示） */
+	formatMachineCode : string
 }

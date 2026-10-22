@@ -1,5 +1,0 @@
-export type State = {
-	isOpen:boolean;
-	logs:string[];
-	scrollViewId:string
-}

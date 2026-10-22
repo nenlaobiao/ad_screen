@@ -3,70 +3,60 @@
 	 * 测试demo
 	 */
 	import { State } from "./types.uts"
-	import ModbusQueue from "@/serial/queue.uts"
-	import { parseModbusString } from "@/serial/utils.uts"
+	import serialController from "@/serial/index.uts"
+	import modbusQueue from "@/serial/queue.uts"
+	import { registerMap } from "@/serial/types.uts"
 	import { getTimeHMSMs } from "@/utils/tools.uts"
 	import { globalState } from "@/store/index.uts"
-	import type { TempObject } from '@/api/types/tempTypes.uts'
-	import type { ResponseData } from '@/utils/request.uts';
-	import Serial from '@/serial/serial.uts';
 	
 	const state = reactive<State>({
 		isOpen: false,
 		logs:[],
 		scrollViewId:'',
 	})
-	let analyzeHEX : (hex : string,res:string) => void = () => {}
-	ModbusQueue.registerCallback((hex, res, status) => {
+	// 旁路查看每次收发结果
+	modbusQueue.onTraffic = (hex : string, res : string, status : boolean) => {
 		console.log('ModbusQueue', hex, res, status)
-		if (status) {
-			analyzeHEX(hex,res)
-		}
-	})
-	onLoad(() => {
-	})
-	onUnload(()=>{
-		ModbusQueue.cancelCallback()
-	})
-	analyzeHEX = (hex : string,res:string) : void => {
 		// let line = `----------${getTimeHMSMs()}----------`
 		// state.logs.push( `发 --> ${hex}`, `收 <-- ${res}`, line )
 		// state.scrollViewId = `${line}-${state.logs.length - 1}`
-		
-		if (hex == '010302BC000A0591') {
-			let deviceName = parseModbusString(res)
-			console.log('deviceName', deviceName)
-		}
 	}
-	async function autoConnect() {
-		await Serial.autoConnect()
-		if (Serial.connecting) {
-			ModbusQueue.startListener()
-		}
+	onUnload(()=>{
+		modbusQueue.onTraffic = null
+	})
+	function autoConnect() {
+		serialController.connect()
 	}
-
-
 	function close() {
-		ModbusQueue.clear()
-		Serial.close()
+		serialController.disconnect()
 	}
-	function readWash(){
-		ModbusQueue.push('010300100001A408')
+	/** 读洗护模式 D16 */
+	async function readWash(){
+		const regs = await serialController.read(16, 1)
+		console.log('readWash', regs)
 	}
-	function setWash(val:number){
-		if(val == 1)ModbusQueue.push('01060010000149CF')
-		if(val == 2)ModbusQueue.push('01060010000209CE')
-		if(val == 3)ModbusQueue.push('010600100003C80E')
-		
+	/** 写洗护模式 D16 */
+	async function setWash(val:number){
+		const ok = await serialController.write(16, val)
+		console.log('setWash', val, ok)
 	}
-	function getDeviceName() {
-		ModbusQueue.push('010302BC000A0591')
+	async function getDeviceName() {
+		const deviceName = await serialController.readDeviceName()
+		console.log('deviceName', deviceName)
 	}
-	function sendHex() {
-		ModbusQueue.push('01030016000165CE')
+	/** 读洗护阶段 D22 */
+	async function sendHex() {
+		const regs = await serialController.read(registerMap.WASH_PHASE, 1)
+		console.log('washPhase', regs)
 	}
+	/** 连续排队读取多个单寄存器 */
 	function pushBatch() {
-		ModbusQueue.pushBatch(['0103001A0001A5CD', '0103001C000145CC', '0103002E0001E403', '0103001E0001E40C', '01030020000185C0', '0103002200012400', '010300240001C401'])
+		const addresses : number[] = [26, 28, 46, 30, 32, 34, 36]
+		for (const address of addresses) {
+			serialController.read(address, 1).then((regs : number[] | null) => {
+				console.log(`D${address}`, regs)
+			})
+		}
 	}
 	function closeLog(){
 		state.logs = []

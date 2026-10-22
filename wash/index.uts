@@ -1,0 +1,225 @@
+import { globalState } from "@/store/index.uts"
+import serialController, { STORAGE_WASH_MODE } from "@/serial/index.uts"
+import { washPhase } from "@/serial/types.uts"
+import voiceController from "@/voice/index.uts"
+
+/** 已发出启动指令但设备一直没离开待机时，最多显示“已支付”多久（毫秒） */
+const PAID_WAITING_MAX_MS : number = 3 * 60 * 1000
+/** 开门后多久还没关门就语音提醒（毫秒） */
+const DOOR_TIPS_DELAY_MS : number = 20 * 1000
+/** 急停的故障码 */
+const FAULT_EMERGENCY_STOP : number = 256
+/** 故障码位标志与名称（沿用旧版 errorMsg） */
+const FAULT_BITS : number[] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+const FAULT_NAMES : string[] = ['冷风机', '紫外线', '浴室照明', '门锁', '增压泵', '热水器', '暖风机', '暖风机', '紧急停止', 'PLC']
+
+/** 右侧区域显示内容 */
+export type WashView = {
+	/** pay：套餐页；card：状态卡；progress：洗护步骤 */
+	type : string,
+	/** 状态卡类型（c-status-card 的 status） */
+	card : string,
+	/** 提示语 */
+	tips : string,
+	/** 倒计时秒数，小于 0 不显示 */
+	seconds : number,
+}
+
+function cardView(card : string, tips : string, seconds : number = -1) : WashView {
+	return { type: 'card', card: card, tips: tips, seconds: seconds }
+}
+
+/** 故障码转文字：旧版 48 单独约定为加热器，其余按位拆分 */
+export function faultText(code : number) : string {
+	if (code == 48) return '加热器'
+	const names : string[] = []
+	for (let i = 0; i < FAULT_BITS.length; i++) {
+		if ((code & FAULT_BITS[i]) != 0 && !names.includes(FAULT_NAMES[i])) {
+			names.push(FAULT_NAMES[i])
+		}
+	}
+	return names.length > 0 ? names.join('、') : '未知'
+}
+
+/**
+ * 根据设备状态决定右侧显示内容（沿用旧版 setWashStatus 的界面规则）
+ * 只读 globalState，可直接放在 computed 里
+ */
+export function getWashView() : WashView {
+	const device = globalState.deviceData
+	const status = device.status as number
+	const dry = device.mode == 'dry'
+	const countdown = device.countdownTime
+
+	if (globalState.updating) return cardView('update', '机器更新中...')
+
+	if (status == washPhase.POST_STERILIZE_STANDBY) {
+		if (globalState.paidWaiting) return cardView('paid', '')
+		return { type: 'pay', card: '', tips: '', seconds: -1 }
+	}
+	if (status == washPhase.PRE_STERILIZE) {
+		// 单独烘干只显示消毒状态，洗护套餐进入步骤页
+		if (dry) return cardView('clean', '机器消毒中...', countdown)
+		return { type: 'progress', card: '', tips: '', seconds: countdown }
+	}
+	if (status == washPhase.DOOR_OPEN_WAITING_FOR_PET) {
+		return cardView('bathe', globalState.takePet ? '每次洗护只能放入一只宠物，请取出' : '舱门已打开请放入宠物')
+	}
+	if (status == washPhase.ADAPTATION_WAIT) return cardView('update', '宠物适应阶段', countdown)
+	if (status == washPhase.DRYING) {
+		if (dry) return cardView('dry', '正在烘干中...', countdown)
+		return { type: 'progress', card: '', tips: '', seconds: countdown }
+	}
+	if (status >= washPhase.PRE_WASH_RINSE && status < washPhase.DRYING) {
+		return { type: 'progress', card: '', tips: '', seconds: countdown }
+	}
+	if (status == washPhase.DOOR_OPEN_WAITING_FOR_PICKUP) return cardView('takeout', '舱门已打开请带出宠物')
+	if (status == washPhase.POST_WASH_STERILIZE) return cardView('clean', '机器消毒中...')
+	if (status == washPhase.FAULT) {
+		if (device.fault == FAULT_EMERGENCY_STOP) return cardView('emergency', '紧急急停中，请取出宠物后关门')
+		return cardView('error', `${faultText(device.fault)}故障，暂停使用`)
+	}
+	if (status == washPhase.POST_STERILIZE_DOOR_OPEN_REMINDER) {
+		return cardView('abnormal', '请关门消毒后再使用，请不要放入宠物关门')
+	}
+	return { type: 'pay', card: '', tips: '', seconds: -1 }
+}
+
+/**
+ * 洗护流程：跟随串口读到的洗护阶段，维护“已支付”“笼内已有宠物”等界面状态
+ */
+class WashController {
+	/** 上一次读到的洗护阶段 */
+	private lastStatus : number = -1
+	/** 开始显示“已支付”的时间，0 表示未在等待 */
+	private paidSince : number = 0
+	/** 关门提醒定时器（触发后保留，离开开门阶段才清除，避免重复提醒） */
+	private doorTimer : number | null = null
+
+	constructor() {}
+
+	/** 初始化：在 App.uvue 的 onLaunch 中调用 */
+	init() {
+		// 恢复上次启动的套餐类型，App 重启后仍能区分是否单独烘干
+		const saved = uni.getStorageSync(STORAGE_WASH_MODE)
+		if (saved == 'dry') globalState.deviceData.mode = 'dry'
+		else if (saved == 'basis') globalState.deviceData.mode = 'basis'
+		else if (saved == 'enhance') globalState.deviceData.mode = 'enhance'
+
+		serialController.onStatus = (status : number) => {
+			this.handleStatus(status)
+		}
+	}
+
+	/** 销毁：在 App 退出时调用 */
+	destroy() {
+		serialController.onStatus = null
+		this.clearDoorTips()
+	}
+
+	/** 每轮轮询读到洗护阶段时调用 */
+	private handleStatus(status : number) {
+		const prev = this.lastStatus
+		this.lastStatus = status
+
+		// 沿用旧版：从适应阶段回到开门阶段，说明笼内已放过宠物；离开这两个阶段后清除
+		if (prev == washPhase.ADAPTATION_WAIT && status == washPhase.DOOR_OPEN_WAITING_FOR_PET) {
+			globalState.takePet = true
+		} else if (prev != washPhase.ADAPTATION_WAIT && prev != washPhase.DOOR_OPEN_WAITING_FOR_PET) {
+			globalState.takePet = false
+		}
+
+		this.updatePaidWaiting(status)
+		this.handleVoice(prev, status)
+
+		// 背景音乐：适应阶段到烘干（15~70）播放，其余阶段停止（沿用旧版）
+		if (status >= washPhase.ADAPTATION_WAIT && status <= washPhase.DRYING) {
+			voiceController.playBgm()
+		} else {
+			voiceController.stopBgm()
+		}
+	}
+
+	/**
+	 * 各阶段语音提醒（沿用旧版 setWashStatus 里的 voiceReminder）
+	 * 每轮轮询都会调用，靠 voiceController 的剩余次数控制不重复播报
+	 */
+	private handleVoice(prev : number, status : number) {
+		const dry = globalState.deviceData.mode == 'dry'
+		if (status != washPhase.DOOR_OPEN_WAITING_FOR_PET) this.clearDoorTips()
+
+		if (status == washPhase.PRE_STERILIZE) {
+			if (!dry) voiceController.remind('xhzf')
+		} else if (status == washPhase.DOOR_OPEN_WAITING_FOR_PET) {
+			this.startDoorTips()
+			if (globalState.takePet) {
+				voiceController.remind('qccw')
+			} else {
+				voiceController.remind(dry ? 'hgzf' : 'xdwc')
+			}
+		} else if (status == washPhase.ADAPTATION_WAIT) {
+			voiceController.remind('cwsy')
+		} else if (status == washPhase.PRE_WASH_RINSE || status == washPhase.POST_SHAMPOO_RINSE || status == washPhase.FINAL_RINSE) {
+			voiceController.remind('hwsx')
+		} else if (status == washPhase.SHOWER_GEL_WASH) {
+			voiceController.remind('psmyl')
+			// 下一次冲洗再播一次“恒温水洗”
+			voiceController.setRecord('hwsx', 1)
+		} else if (status == washPhase.CONDITIONER_CARE) {
+			voiceController.remind('pshms')
+			voiceController.setRecord('hwsx', 1)
+		} else if (status == washPhase.DRYING) {
+			voiceController.remind('hwhg')
+		} else if (status == washPhase.DOOR_OPEN_WAITING_FOR_PICKUP) {
+			voiceController.remind('xywc')
+		} else if (status == washPhase.POST_WASH_STERILIZE) {
+			voiceController.remind('zx')
+		} else if (status == washPhase.FAULT) {
+			if (globalState.deviceData.fault == FAULT_EMERGENCY_STOP) voiceController.remind('jt')
+		} else if (status == washPhase.POST_STERILIZE_STANDBY || status == washPhase.POST_STERILIZE_DOOR_OPEN_REMINDER) {
+			// 回到待机 / 门未关提醒：新一轮洗护，恢复提醒次数
+			if (prev != status) voiceController.resetRecord()
+		}
+	}
+
+	/** 开门 20 秒后还在开门阶段，连续提醒 3 次关门（沿用旧版） */
+	private startDoorTips() {
+		if (this.doorTimer != null) return
+		this.doorTimer = setTimeout(() => {
+			voiceController.remind('gm')
+			voiceController.remind('gm')
+			voiceController.remind('gm')
+		}, DOOR_TIPS_DELAY_MS)
+	}
+
+	private clearDoorTips() {
+		const timerId = this.doorTimer
+		if (timerId != null) {
+			clearTimeout(timerId)
+			this.doorTimer = null
+		}
+	}
+
+	/** 设备离开待机说明已启动，不再显示“已支付”；一直不启动时超时恢复套餐页，避免卡住 */
+	private updatePaidWaiting(status : number) {
+		if (!globalState.paidWaiting) {
+			this.paidSince = 0
+			return
+		}
+		if (status != washPhase.POST_STERILIZE_STANDBY) {
+			globalState.paidWaiting = false
+			this.paidSince = 0
+			return
+		}
+		const now = Date.now()
+		if (this.paidSince == 0) {
+			this.paidSince = now
+		} else if (now - this.paidSince > PAID_WAITING_MAX_MS) {
+			console.warn('已发出启动指令，但设备 3 分钟内未离开待机，恢复套餐页')
+			globalState.paidWaiting = false
+			this.paidSince = 0
+		}
+	}
+}
+
+export default new WashController()

@@ -1,4 +1,5 @@
-import { get, post, ResponseData } from '@/utils/request.uts';
+import { get, post, request, ResponseData } from '@/utils/request.uts';
+import { baseUrl } from '@/config.uts';
 
 /** 获取模板信息 */
 export function getTemplate<T> (params : UTSJSONObject) : Promise<ResponseData<T>>{
@@ -13,4 +14,53 @@ export function getGoodsInfo<T> (params : UTSJSONObject) : Promise<ResponseData<
 /** 获取设备信息 */
 export function getDeviceInfo<T> () : Promise<ResponseData<T>>{
 	return get<T>('/shop/api/pet/order/deviceInfo')
+}
+
+/**
+ * 设备巡检：返回远程重启 / 关闭 / 截屏指令、语音文案等
+ * 定时轮询用：失败不弹提示，5 秒超时（失败会被当作断网）
+ */
+export function checkeStatus<T> (params : UTSJSONObject) : Promise<ResponseData<T>>{
+	const config = UTSJSONObject.assign<RequestOptions<T>>({}, {
+		url: '/shop/api/pet/order/checkeStatus',
+		data: params,
+		method: 'GET',
+		timeout: 5000,
+	})
+	return request<T>(config as RequestOptions<T>, { silent: true })
+}
+
+/** 保存截图记录 */
+export function saveScreenshot<T> (params : UTSJSONObject) : Promise<ResponseData<T>>{
+	return post<T>('/shop/api/pet/order/saveScreenshot', params)
+}
+
+/**
+ * 上传文件
+ * @returns 服务器上的文件路径；失败返回 null
+ */
+export function uploadFile (filePath : string) : Promise<string | null>{
+	return new Promise<string | null>((resolve : (path : string | null) => void) => {
+		uni.uploadFile({
+			url: baseUrl + '/file/api/upload',
+			filePath: filePath,
+			name: 'file',
+			header: {
+				Accept: 'text/json',
+			},
+			success: (res) => {
+				const result = JSON.parseObject(res.data)
+				if (result != null && result.getNumber('error') == 0) {
+					resolve(result.getJSON('data')?.getString('path'))
+				} else {
+					console.warn('文件上传失败', res.data)
+					resolve(null)
+				}
+			},
+			fail: (err) => {
+				console.warn('文件上传失败', err)
+				resolve(null)
+			}
+		})
+	})
 }

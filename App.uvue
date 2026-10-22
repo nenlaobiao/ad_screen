@@ -1,22 +1,62 @@
 <script lang="uts">
 	import { launchAppOnBoot } from '@/utils/boot.uts'
 	import {setFullscreen ,isDeviceRooted} from "@/utils/native.uts"
+	import serialController from '@/serial/index.uts'
+	import socketController from '@/websocket/index.uts'
+	import washController from '@/wash/index.uts'
+	import monitorController from '@/monitor/index.uts'
+	import voiceController from '@/voice/index.uts'
+	import { globalState } from '@/store/index.uts'
 	let firstBackTime = 0
+	/** 当前时间刷新定时器（底部状态栏显示），只在前台运行 */
+	let clockTimer : number | null = null
+	function stopClock() {
+		const timerId = clockTimer
+		if (timerId != null) {
+			clearInterval(timerId)
+			clockTimer = null
+		}
+	}
+	function startClock() {
+		stopClock()
+		globalState.nowTime = Date.now()
+		clockTimer = setInterval(() => {
+			globalState.nowTime = Date.now()
+		}, 1000)
+	}
 	export default {
 		onLaunch: function () {
 			console.log('App Launch')
 			launchAppOnBoot()
 			const isRoot = isDeviceRooted()
 			console.log(isRoot ? '设备已root':'root未开启')
+			// 版本号会随 WebSocket init 上报，服务器据此判断是否需要更新
+			globalState.appVersion = uni.getAppBaseInfo().appVersion ?? '0.0.0'
+			// 语音播报：TTS 引擎初始化需要时间，提前创建
+			voiceController.init()
+			// 洗护流程：跟随串口读到的洗护阶段切换界面、语音提醒和背景音乐
+			washController.init()
+			// 初始化串口控制模块：自动连接 + 队列监听 + 读取数据解析
+			serialController.init()
+			// 初始化 WebSocket：读到设备号后自动连接，断线自动重连
+			socketController.init()
+			// 设备巡检：网络状态监听、远程重启 / 关闭 / 截屏
+			monitorController.init()
 		},
 		onShow: function () {
 			console.log('App Show')
+			globalState.appActive = true
+			// 回到前台时检查服务器连接，断开则立即重连
+			socketController.onAppShow()
+			startClock()
 			setTimeout(()=>{
 				setFullscreen(true)
 			},100)
 		},
 		onHide: function () {
 			console.log('App Hide')
+			globalState.appActive = false
+			stopClock()
 		},
 		// #ifdef APP-ANDROID
 		onLastPageBackPress : function () {
@@ -38,6 +78,13 @@
 		// #endif
 		onExit: function () {
 			console.log('App Exit')
+			stopClock()
+			// 注销顺序与 onLaunch 相反：先停上层（巡检、WebSocket、洗护），再关串口，最后释放声音
+			monitorController.destroy()
+			socketController.destroy()
+			washController.destroy()
+			serialController.destroy()
+			voiceController.destroy()
 		},
 	}
 </script>

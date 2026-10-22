@@ -1,0 +1,143 @@
+import { globalState } from "@/store/index.uts"
+import { checkeStatus } from "@/api/index.uts"
+import { washPhase } from "@/serial/types.uts"
+import { restartApp } from "@/utils/native.uts"
+import socketController from "@/websocket/index.uts"
+import voiceController from "@/voice/index.uts"
+import { screenshotAndUpload } from "./screenshot.uts"
+
+/** 巡检间隔（毫秒），与旧版一致 */
+const CHECK_INTERVAL_MS : number = 3000
+/** 待机且断网持续多久重启一次 App（毫秒）：半小时 */
+const OFFLINE_RESTART_MS : number = 30 * 60 * 1000
+
+/** 接口里的开关字段可能是 1 / true / "1"，统一转成布尔 */
+function isOn(value : any | null) : boolean {
+	if (value == null) return false
+	const text = `${value}`
+	return text != '' && text != '0' && text != 'false'
+}
+
+/**
+ * 设备巡检（沿用旧版 statusUpdateFn / getCheckeStatus / networkCallback）
+ * - 监听系统网络状态，巡检接口请求失败也视为断网
+ * - 每 3 秒请求一次 checkeStatus：远程重启、远程关闭、远程截屏
+ * - 待机且断网持续半小时自动重启 App（重启后仍断网则再过半小时重启）
+ */
+class MonitorController {
+	private checkTimer : number | null = null
+	/** 正在请求巡检接口 */
+	private checking : boolean = false
+	/** 进入“待机且断网”状态的时间，0 表示当前不在该状态 */
+	private offlineSince : number = 0
+	/** 网络状态监听，保留引用以便退出时注销 */
+	private networkListener = (res : OnNetworkStatusChangeCallbackResult) => {
+		this.setNetwork(res.isConnected)
+	}
+
+	constructor() {}
+
+	/** 初始化：在 App.uvue 的 onLaunch 中调用 */
+	init() {
+		// 系统网络状态：先查一次，之后监听变化
+		uni.getNetworkType({
+			success: (res) => {
+				this.setNetwork(res.networkType != 'none')
+			}
+		})
+		uni.onNetworkStatusChange(this.networkListener)
+		this.checkTimer = setInterval(() => {
+			this.countOffline()
+			this.check()
+		}, CHECK_INTERVAL_MS)
+	}
+
+	/** 销毁：在 App 退出时调用（如果支持） */
+	destroy() {
+		uni.offNetworkStatusChange(this.networkListener)
+		const timerId = this.checkTimer
+		if (timerId != null) {
+			clearInterval(timerId)
+			this.checkTimer = null
+		}
+	}
+
+	/** 更新网络状态；变化时通知 WebSocket 断开或立即重连 */
+	setNetwork(connected : boolean) {
+		if (globalState.networkConnected == connected) return
+		globalState.networkConnected = connected
+		console.log(connected ? '网络已恢复' : '网络已断开')
+		socketController.onNetworkChange(connected)
+	}
+
+	/** 待机且断网持续半小时则重启 App；网络恢复或进入洗护（不打断）时重新计时 */
+	private countOffline() {
+		const idle = (globalState.deviceData.status as number) == washPhase.POST_STERILIZE_STANDBY
+		if (globalState.networkConnected || !idle) {
+			this.offlineSince = 0
+			return
+		}
+		const now = Date.now()
+		if (this.offlineSince == 0) {
+			this.offlineSince = now
+			return
+		}
+		if (now - this.offlineSince >= OFFLINE_RESTART_MS) {
+			console.error('待机且断网已持续半小时，重启 App')
+			this.offlineSince = 0
+			restartApp()
+		}
+	}
+
+	/** 请求巡检接口：成功即网络正常，失败视为断网 */
+	private async check() {
+		// 设备号读到之前没法查询；上一次请求还没返回时跳过
+		if (this.checking || globalState.machineCode == '') return
+		this.checking = true
+		let data : UTSJSONObject | null = null
+		try {
+			const res = await checkeStatus<UTSJSONObject>({ machine_code: globalState.machineCode })
+			data = res.data
+		} catch (e) {
+			console.warn('巡检接口请求失败', e)
+		}
+		this.checking = false
+		this.setNetwork(data != null)
+		if (data != null) this.handleCheck(data)
+	}
+
+	private handleCheck(data : UTSJSONObject) {
+		if (isOn(data.get('is_restart'))) {
+			console.warn('收到远程重启指令')
+			socketController.feedback('restart')
+			setTimeout(() => {
+				restartApp()
+			}, 500)
+			return
+		}
+		if (isOn(data.get('is_close'))) {
+			console.warn('收到远程关闭指令')
+			// 与旧版一致：关闭也回 restart 反馈
+			socketController.feedback('restart')
+			setTimeout(() => {
+				uni.exit()
+			}, 500)
+			return
+		}
+		if (isOn(data.get('is_screenshot'))) {
+			screenshotAndUpload()
+		}
+		// 语音提醒文案配置
+		const voice = data.getArray('voice')
+		if (voice != null) {
+			const list : UTSJSONObject[] = []
+			for (let i = 0; i < voice.length; i++) {
+				const item = voice[i]
+				if (item instanceof UTSJSONObject) list.push(item as UTSJSONObject)
+			}
+			voiceController.setVoiceList(list)
+		}
+	}
+}
+
+export default new MonitorController()

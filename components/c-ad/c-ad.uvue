@@ -7,7 +7,8 @@
 	import { toNewArray} from "@/utils/tools.uts"
 	import fileManage , {repairSingleFile} from "@/utils/file.uts"
 	import { getUUID } from '@/utils/tools.uts'
-	
+	import { globalState } from '@/store/index.uts'
+
 	const props = defineProps({
 	  list: {
 	    type: Array as PropType<AdItem[]>,
@@ -33,7 +34,11 @@
 		if(state.length == 0) return null
 		return state.list[state.current] as dFile
 	})
-	
+	/** 页面隐藏或 App 在后台：暂停广告（图片停止计时、视频暂停且不自动播放） */
+	const paused = ref<boolean>(false)
+	/** 页面是否被隐藏（onPageHide） */
+	let pageHidden = false
+
 	function getVideoContext():VideoContext|null{
 		return uni.createVideoContext(state.videoId)
 	}
@@ -59,7 +64,7 @@
 		}
 	
 		state.isPlay = true
-		
+
 		const currentAd = adData.value
 		if (currentAd == null) {
 			state.isPlay = false
@@ -75,9 +80,14 @@
 	
 	function imageLoad(){
 		clearTimer()
+		// 暂停中不计时，恢复时会重新调用
+		if (paused.value) return
+		// 停留时长用服务器下发的 duration（秒），没有或不合法时默认 10 秒（沿用旧版）
+		const duration = adData.value?.data.duration ?? 0
+		const seconds = duration > 0 ? duration : 10
 		state.timer = setTimeout(() => {
 			next()
-		}, 10000)
+		}, seconds * 1000)
 	}
 	
 	/** 播放 */
@@ -152,11 +162,30 @@
 		next()
 		repairAD(data)
 	}
+	/** 页面隐藏或 App 进入后台时暂停广告，都恢复后继续播放 */
+	function updatePaused() {
+		const shouldPause = pageHidden || !globalState.appActive
+		if (shouldPause == paused.value) return
+		paused.value = shouldPause
+		if (shouldPause) {
+			clearTimer() // 图片停止计时
+			pause() // 视频暂停
+		} else if (state.isPlay && adData.value?.data.type == 'image') {
+			imageLoad() // 图片重新计时
+		} else {
+			play() // 视频继续播放
+		}
+	}
+	watch(() : boolean => globalState.appActive, () => {
+		updatePaused()
+	})
 	onPageShow(()=>{
-		play()
+		pageHidden = false
+		updatePaused()
 	})
 	onPageHide(()=>{
-		pause()
+		pageHidden = true
+		updatePaused()
 	})
 	onUnmounted(() => {
 		clearTimer() // 组件销毁时清除定时器，防止内存泄漏
@@ -171,7 +200,7 @@
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" @load="imageLoad" 
 				@error="imageError(adData as dFile,$event as UniImageErrorEvent)"/>
 			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" :show-loading="false" :controls="false"
-				:autoplay="true" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false" :enable-progress-gesture="false" 
+				:autoplay="!paused" :show-center-play-btn="false" :show-play-btn="false" :show-fullscreen-btn="false" :enable-progress-gesture="false"
 				@ended="videoEnded" @error="videoError(adData as dFile,$event as UniVideoErrorEvent)" />
 		</template>
 		<image v-else class="ad-empty" src="/static/temporaryAD.jpg" />
