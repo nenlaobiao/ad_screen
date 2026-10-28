@@ -13,7 +13,7 @@
 	<view class="tempBox">
 		<image class="tempBox-item-icon" src="/static/icon/room.png" />
 		<text class="tempBox-item-text">室温：{{ deviceData.cage }} ℃</text>
-		<view class="line" />
+		<view class="tempBox-line" />
 		<image class="tempBox-item-icon" src="/static/icon/water.png" />
 		<text class="tempBox-item-text">水温：{{ deviceData.water }} ℃</text>
 	</view>
@@ -34,27 +34,27 @@
 		border-radius: 10rpx;
 		box-shadow: 1rpx 1rpx 4rpx 2rpx rgba(100, 100, 100, 0.15);
 		padding: 0 6rpx;
+	}
 
-		.line {
-			height: 6rpx;
-			width: 2rpx;
-			transform: scaleX(0.4);
-			background-color: rgba(35, 110, 153, 0.5);
-			margin: 0 6rpx;
-		}
+	/* 蒸汽模式只支持单个 class 选择器，子元素样式不要嵌套 */
+	.tempBox-line {
+		height: 6rpx;
+		width: 2rpx;
+		transform: scaleX(0.4);
+		background-color: rgba(35, 110, 153, 0.5);
+		margin: 0 6rpx;
+	}
 
-		.tempBox-item-icon {
-			width: 7rpx;
-			height: 7rpx;
-			margin-right: 3rpx;
-		}
+	.tempBox-item-icon {
+		width: 7rpx;
+		height: 7rpx;
+		margin-right: 3rpx;
+	}
 
-		.tempBox-item-text {
-			flex: 1;
-			margin-top: 1rpx;
-			// font-weight: bold;
-			color: #2E87B5;
-			font-size: 7rpx;
-		}
+	.tempBox-item-text {
+		flex: 1;
+		margin-top: 1rpx;
+		color: #2E87B5;
+		font-size: 7rpx;
 	}
 </style>

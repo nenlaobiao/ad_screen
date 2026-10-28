@@ -4,7 +4,6 @@
 	 */
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { CAdChange, State } from "./types.uts"
-	import { toNewArray} from "@/utils/tools.uts"
 	import fileManage , {repairSingleFile} from "@/utils/file.uts"
 	import { getUUID } from '@/utils/tools.uts'
 	import { globalState } from '@/store/index.uts'
@@ -227,20 +226,14 @@
 		box-sizing: border-box; // 确保边框不会增加元素的总宽高
 		border-radius: 26rpx;
 		border: 9rpx solid #fff; // 直接在 ad 上设置边框
-		.swiper-img {
-			height: 100%;
-			width: 100%;
-		}
+	}
 
-		.swiper-video {
-			height: 100%;
-			width: 100%;
-			
-		}
-		.ad-empty{
-			width: 100%;
-			height: 100%;
-		}
+	/* 蒸汽模式只支持单个 class 选择器，子元素样式不要嵌套 */
+	.swiper-img,
+	.swiper-video,
+	.ad-empty {
+		height: 100%;
+		width: 100%;
 	}
 	.ad-border{
 		position: absolute;

@@ -41,34 +41,11 @@ export function getErrorMsg(code : number) : string {
 		return `网络请求错误:${strCode}`
 	}
 }
-/**
- * 将任意对象安全转换为指定类型
+/*
+ * 类型转换说明：蒸汽模式下逻辑层由 js 引擎执行，泛型参数 T 在运行时不存在，
+ * 不能再写 toNewObject<T> 这类“在泛型函数里调用 JSON.parse<T> / UTSJSONObject.assign<T>”的通用转换，
+ * 请在调用处直接写具体类型：JSON.parse<Goods>(JSON.stringify(value))
  */
-export function toNewObject<T>(obj : any) : T {
-	try {
-		return UTSJSONObject.assign<T>(obj as UTSJSONObject)!;
-	} catch (err) {
-		let errData = JSON.parse<T>(JSON.stringify(obj))!
-		return errData
-	}
-}
-/**
- * 将任意数组安全转换为指定类型
- */
-export function toNewArray<T>(obj : any) : T[] {
-	try {
-		const arr = obj as any[]
-		const result : any[] = []
-		for (let i = 0; i < arr.length; i++) {
-			const item = arr[i] as UTSJSONObject
-			result.push(UTSJSONObject.assign<T>(item)!)
-		}
-		return result as T[]
-	} catch (err) {
-		console.log('toNewArray --- error', err)
-		return []
-	}
-}
 export function showMsg(title : string, duration : number = 1500, mask : boolean = true) {
 	uni.showToast({
 		title,

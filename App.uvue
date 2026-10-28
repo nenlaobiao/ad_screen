@@ -1,6 +1,5 @@
 <script lang="uts">
-	import { launchAppOnBoot } from '@/utils/boot.uts'
-	import {setFullscreen ,isDeviceRooted} from "@/utils/native.uts"
+	import { launchAppOnBoot, setFullscreen, isDeviceRooted } from '@/uni_modules/ad-native'
 	import serialController from '@/serial/index.uts'
 	import socketController from '@/websocket/index.uts'
 	import washController from '@/wash/index.uts'

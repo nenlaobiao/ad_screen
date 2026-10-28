@@ -1,7 +1,7 @@
 import { globalState } from "@/store/index.uts"
 import { checkeStatus } from "@/api/index.uts"
 import { washPhase } from "@/serial/types.uts"
-import { restartApp } from "@/utils/native.uts"
+import { restartApp } from "@/uni_modules/ad-native"
 import socketController from "@/websocket/index.uts"
 import voiceController from "@/voice/index.uts"
 import { screenshotAndUpload } from "./screenshot.uts"
@@ -96,8 +96,8 @@ class MonitorController {
 		this.checking = true
 		let data : UTSJSONObject | null = null
 		try {
-			const res = await checkeStatus<UTSJSONObject>({ machine_code: globalState.machineCode })
-			data = res.data
+			const res = await checkeStatus({ machine_code: globalState.machineCode })
+			data = res.data as UTSJSONObject | null
 		} catch (e) {
 			console.warn('巡检接口请求失败', e)
 		}

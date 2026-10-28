@@ -116,41 +116,44 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+	}
 
-		.status-card-tips {
-			margin-top: 44rpx;
-			font-size: 17rpx;
-			font-weight: bold;
-			color: #2E87B5;
-			text-align: center;
-		}
+	/* 蒸汽模式只支持单个 class 选择器，子元素样式不要嵌套 */
+	.status-card-tips {
+		margin-top: 44rpx;
+		font-size: 17rpx;
+		font-weight: bold;
+		color: #2E87B5;
+		text-align: center;
+	}
 
-		.error-tips {
-			color: #fff !important;
-			font-size: 24rpx;
-		}
+	/* 和 status-card-tips 同时使用，必须写在它后面才能覆盖 */
+	.error-tips {
+		color: #fff;
+		font-size: 24rpx;
+	}
 
-		.status-card-time {
-			margin-top: 4rpx;
-			font-size: 24rpx;
-			font-weight: bold;
-			color: #2E87B5;
-		}
+	.status-card-time {
+		margin-top: 4rpx;
+		font-size: 24rpx;
+		font-weight: bold;
+		color: #2E87B5;
+	}
 
-		.status-card-illus {
-			height: 146rpx;
-			width: 146rpx;
-		}
-		.emergency-tips{
-			height: 28rpx;
-			padding: 0 20rpx;
-			font-size: 16rpx;
-			border-radius: 20rpx;
-			line-height: 30rpx;
-			font-weight: bold;
-			transform: translateY(-14rpx);
-			color:#FF7166;
-			background-color: #FFFFFF;
-		}
+	.status-card-illus {
+		height: 146rpx;
+		width: 146rpx;
+	}
+
+	.emergency-tips {
+		height: 28rpx;
+		padding: 0 20rpx;
+		font-size: 16rpx;
+		border-radius: 20rpx;
+		line-height: 30rpx;
+		font-weight: bold;
+		transform: translateY(-14rpx);
+		color: #FF7166;
+		background-color: #FFFFFF;
 	}
 </style>

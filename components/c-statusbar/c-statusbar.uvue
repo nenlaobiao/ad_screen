@@ -42,13 +42,14 @@
 		display: flex;
 		align-items: center;
 		flex-direction: row;
+	}
 
-		.statusbar-text {
-			margin-left: 18rpx;
-			color: #fff;
-			font-size: 7rpx;
-			font-weight: bold;
-			text-align: center;
-		}
+	/* 蒸汽模式只支持单个 class 选择器，子元素样式不要嵌套 */
+	.statusbar-text {
+		margin-left: 18rpx;
+		color: #fff;
+		font-size: 7rpx;
+		font-weight: bold;
+		text-align: center;
 	}
 </style>

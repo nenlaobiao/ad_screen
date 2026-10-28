@@ -72,7 +72,7 @@
 					<text class="log-list-item-text" :selectable="true">{{text}}</text>
 				</list-item>
 			</list-view>
-			<button class="demo-btn" @click="closeLog">closeLog</button>
+			<button class="demo-btn demo-log-btn" @click="closeLog">closeLog</button>
 		</view>
 		<view class="demo-btns">
 			<button class="demo-btn" @click="autoConnect">autoConnect</button>
@@ -90,6 +90,7 @@
 </template>
 
 <style lang="scss">
+	/* 蒸汽模式运行时只支持单个 class 选择器和分组选择器：不要嵌套 */
 	.demo {
 		height: 100%;
 		width: 100%;
@@ -101,50 +102,50 @@
 		align-items: center;
 		justify-content: center;
 		background-color: skyblue;
-		.demo-btns{
-			height: 100%;
-			display: flex;
-			flex-direction:column;
-			justify-content: center;
-			align-items: center;
-			flex:2;
-			.demo-btn {
-				font-size: 10rpx;
-				line-height: 20rpx;
-				height: 20rpx;
-				border-radius: 20rpx;
-				margin-bottom: 4rpx;
-			}
-		}
-		.demo-log{
-			display: flex;
-			flex-direction:column;
-			align-items: center;
-			flex:3;
-			height: 100%;
-			padding-top: 5rpx;
-			.demo-log-list{
-				flex:1;
-				width: 90%;
-				background:#fff;
-				border-radius:6rpx;
-				.log-list-item{
-					// height: 14rpx;
-					.log-list-item-text{
-						font-size: 10rpx;
-						text-align: center;
-						text-overflow: ellipsis;
-						white-space: nowrap;
-					}
-				}
-			}
-			.demo-btn {
-				font-size: 10rpx;
-				line-height: 20rpx;
-				height: 20rpx;
-				border-radius: 20rpx;
-				margin: 4rpx;
-			}
-		}
+	}
+
+	.demo-btns {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		flex: 2;
+	}
+
+	.demo-btn {
+		font-size: 10rpx;
+		line-height: 20rpx;
+		height: 20rpx;
+		border-radius: 20rpx;
+		margin-bottom: 4rpx;
+	}
+
+	/* 日志区的按钮，和 demo-btn 同时使用，必须写在它后面 */
+	.demo-log-btn {
+		margin: 4rpx;
+	}
+
+	.demo-log {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		flex: 3;
+		height: 100%;
+		padding-top: 5rpx;
+	}
+
+	.demo-log-list {
+		flex: 1;
+		width: 90%;
+		background: #fff;
+		border-radius: 6rpx;
+	}
+
+	.log-list-item-text {
+		font-size: 10rpx;
+		text-align: center;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 </style>

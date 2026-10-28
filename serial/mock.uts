@@ -1,4 +1,3 @@
-import { toNewObject } from "@/utils/tools.uts"
 import type { OpenOptions } from "./types.uts"
 import { washPhase, registerMap, liquidLevelStatus, faultCode } from "./types.uts"
 
@@ -154,10 +153,9 @@ export class RS232Serial {
 	}
 
 	/** 打开串口 */
-	public open(options : any) : boolean {
-		const opt = toNewObject<OpenOptions>(options)
+	public open(options : OpenOptions) : boolean {
 		this.isOpened = true
-		console.log(`[ serialMock ] --> 串口已打开 ${opt.port}`)
+		console.log(`[ serialMock ] --> 串口已打开 ${options.port}`)
 		return true
 	}
 

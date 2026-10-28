@@ -2,7 +2,7 @@ import { globalState } from "@/store/index.uts"
 import type { AdItem } from "@/pages/index/types.uts"
 import serialController from "@/serial/index.uts"
 import { washPhase } from "@/serial/types.uts"
-import { restartApp, silentInstallAndRestart } from "@/utils/native.uts"
+import { restartApp, silentInstallAndRestart } from "@/uni_modules/ad-native"
 import { screenshotAndUpload } from "@/monitor/screenshot.uts"
 import socketManager from "./socket.uts"
 

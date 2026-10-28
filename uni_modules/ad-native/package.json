@@ -1,0 +1,64 @@
+{
+  "id": "ad-native",
+  "displayName": "ad-native",
+  "version": "1.0.0",
+  "description": "广告屏原生能力：全屏、开机自启、静默安装、重启、截屏、Root 检测（蒸汽模式下原生调用需放在 uts 插件里）",
+  "keywords": [
+    "ad-native"
+  ],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^4.0",
+    "uni-app-x": "^4.0"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "contact": {
+      "qq": ""
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "无",
+      "permissions": "平台签名权限 INSTALL_PACKAGES / REBOOT / READ_FRAME_BUFFER / START_ACTIVITIES_FROM_BACKGROUND，在项目 AndroidManifest.xml 中声明"
+    },
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "x",
+        "aliyun": "x",
+        "alipay": "x"
+      },
+      "client": {
+        "uni-app-x": {
+          "web": {
+            "safari": "x",
+            "chrome": "x"
+          },
+          "app": {
+            "android": {
+              "extVersion": "1.0.0",
+              "minVersion": "21"
+            },
+            "ios": "x",
+            "harmony": "x"
+          },
+          "mp": {
+            "weixin": "x"
+          }
+        }
+      }
+    }
+  }
+}

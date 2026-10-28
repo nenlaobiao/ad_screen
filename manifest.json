@@ -18,7 +18,11 @@
 					"landscape-primary" //可选，字符串类型，支持横屏
 				]
 			}
-		}
+		},
+		"vapor": true,
+		"styleIsolationVersion": "2",
+		"vapor-render-target": "bytecode",
+		"vapor-default-script-lang": "uts"
 	},
 	/* 快应用特有相关 */
 	"quickapp": {},

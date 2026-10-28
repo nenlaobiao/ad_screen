@@ -1,0 +1,12 @@
+/**
+ * 广告屏原生能力（实现见 app-android/index.uts，仅 Android）
+ * - setFullscreen(enable)：全屏沉浸模式
+ * - launchAppOnBoot()：把 App 拉到前台（开机自启时调用）
+ * - silentInstallAndRestart(apkPath)：静默安装并自动重新打开，返回是否已提交安装
+ * - restartApp()：重启 App
+ * - rebootDevice()：重启设备
+ * - takeScreenshot()：截取整个屏幕，返回截图文件路径，失败为 null
+ * - isDeviceRooted()：是否有 Root
+ * - execRootShell(cmd)：用 su 执行命令
+ */
+export type TakeScreenshot = () => Promise<string | null>

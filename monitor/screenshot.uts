@@ -1,6 +1,6 @@
 import { globalState } from "@/store/index.uts"
 import { saveScreenshot, uploadFile } from "@/api/index.uts"
-import { takeScreenshot } from "@/utils/native.uts"
+import { takeScreenshot } from "@/uni_modules/ad-native"
 
 /** 正在截屏上传，避免重复触发 */
 let busy = false
@@ -19,7 +19,7 @@ export async function screenshotAndUpload() : Promise<boolean> {
 		const image = await uploadFile(path)
 		if (image != null) {
 			try {
-				await saveScreenshot<any>({ machine_code: globalState.machineCode, image: image })
+				await saveScreenshot({ machine_code: globalState.machineCode, image: image })
 				ok = true
 			} catch (e) {
 				console.warn('保存截图记录失败', e)
