@@ -126,6 +126,7 @@ class MonitorController {
 			return
 		}
 		if (isOn(data.get('is_screenshot'))) {
+			console.log('收到远程截屏指令')
 			screenshotAndUpload()
 		}
 		// 语音提醒文案配置

@@ -1,9 +1,31 @@
 import { globalState } from "@/store/index.uts"
 import { saveScreenshot, uploadFile } from "@/api/index.uts"
-import { takeScreenshot } from "@/uni_modules/ad-native"
+import { takeScreenshot, deleteFile } from "@/uni_modules/ad-native"
+
+/** 截屏超时（毫秒）：插件一直不回调时放弃，避免 busy 一直为 true、之后的截屏全被跳过 */
+const CAPTURE_TIMEOUT_MS : number = 15 * 1000
 
 /** 正在截屏上传，避免重复触发 */
 let busy = false
+
+/** 截取整个屏幕，超时返回 null */
+function capture() : Promise<string | null> {
+	return new Promise<string | null>((resolve : (path : string | null) => void) => {
+		let done = false
+		const timer = setTimeout(() => {
+			if (done) return
+			done = true
+			console.warn('截屏超时，插件没有回调')
+			resolve(null)
+		}, CAPTURE_TIMEOUT_MS)
+		takeScreenshot((path : string | null) => {
+			if (done) return
+			done = true
+			clearTimeout(timer)
+			resolve(path)
+		})
+	})
+}
 
 /**
  * 远程截屏：截取整个屏幕 → 上传 → 保存截图记录，完成后删除本地文件
@@ -11,27 +33,31 @@ let busy = false
  * @returns 是否成功
  */
 export async function screenshotAndUpload() : Promise<boolean> {
-	if (busy) return false
+	if (busy) {
+		console.log('上一次截屏还没完成，跳过')
+		return false
+	}
 	busy = true
+	console.log('开始远程截屏')
 	let ok = false
-	const path = await takeScreenshot()
-	if (path != null) {
-		const image = await uploadFile(path)
-		if (image != null) {
-			try {
+	try {
+		const path = await capture()
+		console.log(`截屏文件: ${path}`)
+		if (path != null) {
+			// 插件返回的是 /data/... 绝对路径，蒸汽模式下 uni.uploadFile 会把它当成应用资源目录下的
+			// 相对路径而找不到文件，要加 file:// 前缀
+			const image = await uploadFile(`file://${path}`)
+			if (image != null) {
 				await saveScreenshot({ machine_code: globalState.machineCode, image: image })
 				ok = true
-			} catch (e) {
-				console.warn('保存截图记录失败', e)
 			}
+			deleteFile(path)
 		}
-		try {
-			uni.getFileSystemManager().unlinkSync(path)
-		} catch (e) {
-			console.warn('删除截图文件失败', e)
-		}
+	} catch (e) {
+		console.warn('远程截屏出错', e)
+	} finally {
+		busy = false
 	}
-	busy = false
 	console.log(`远程截屏${ok ? '成功' : '失败'}`)
 	return ok
 }

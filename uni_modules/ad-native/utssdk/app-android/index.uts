@@ -28,6 +28,17 @@ import System from 'java.lang.System';
 import Rect from 'android.graphics.Rect';
 import DisplayMetrics from 'android.util.DisplayMetrics';
 import Integer from 'java.lang.Integer';
+import BroadcastReceiver from 'android.content.BroadcastReceiver';
+
+/**
+ * 转成 Java 文件接口能用的绝对路径：去掉 file:// 前缀，
+ * unifile:// 等 uni 虚拟路径和相对路径交给框架转换
+ */
+function toAbsolutePath(path : string) : string {
+	if (path.startsWith("file://")) return path.substring(7);
+	if (path.startsWith("/")) return path;
+	return UTSAndroid.convert2AbsFullPath(path);
+}
 
 /** 静默安装自身后重新打开 App 的延时（毫秒）：设两次，避免安装还没完成时就触发 */
 const RELAUNCH_DELAYS_MS : number[] = [30 * 1000, 90 * 1000]
@@ -35,6 +46,30 @@ const RELAUNCH_DELAYS_MS : number[] = [30 * 1000, 90 * 1000]
 /**
  * 引导 App 启动（开机自启时把界面拉到前台）
  */
+/**
+ * 开机自启：收到开机广播后打开 App
+ * 在插件的 AndroidManifest.xml 里注册，完整类名 uts.sdk.modules.adNative.BootReceiver
+ * （uni-app x 没有旧版的 io.dcloud.feature.app.BootReceiver，引用它会在开机时 ClassNotFoundException 崩溃）
+ * 不导出给页面使用，只给系统调用
+ */
+class BootReceiver extends BroadcastReceiver {
+	constructor() {
+		super();
+	}
+
+	override onReceive(context : Context, intent : Intent) : void {
+		if (intent.getAction() != Intent.ACTION_BOOT_COMPLETED) return;
+		const launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+		if (launch == null) return;
+		launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		try {
+			context.startActivity(launch);
+		} catch (e) {
+			console.error("开机自启失败", e);
+		}
+	}
+}
+
 export function launchAppOnBoot() {
 	const context = UTSAndroid.getAppContext();
 	if (context == null) return;
@@ -166,7 +201,7 @@ export function silentInstallAndRestart(apkPath : string) : boolean {
 	if (context == null) return false;
 	let session : PackageInstaller.Session | null = null;
 	try {
-		const file = new File(apkPath);
+		const file = new File(toAbsolutePath(apkPath));
 		const installer = context.getPackageManager().getPackageInstaller();
 		const params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
 		const sessionId = installer.createSession(params);
@@ -233,17 +268,21 @@ function screenshotDir() : string {
  * 优先调用系统截屏接口 SurfaceControl.screenshot（screencap 内部用的也是它；
  * 需要平台签名授予的 READ_FRAME_BUFFER 权限，能截到视频画面）；
  * 失败时回退为截取 App 窗口
- * @returns 截图文件的绝对路径；失败返回 null
+ * 用回调而不是 Promise 返回结果：蒸汽模式下回调经插件通道传回更稳定
+ * @param callback 截图文件的绝对路径；失败为 null
  */
-export function takeScreenshot() : Promise<string | null> {
+export function takeScreenshot(callback : (path : string | null) => void) {
 	const path = `${screenshotDir()}/screenshot_${Date.now()}.jpg`;
 	try {
-		if (captureSurface(path)) return Promise.resolve<string | null>(path);
+		if (captureSurface(path)) {
+			callback(path);
+			return;
+		}
 		console.warn("系统截屏返回空，改为截取 App 窗口");
 	} catch (e) {
 		console.warn("系统截屏失败，改为截取 App 窗口", e);
 	}
-	return captureWindow();
+	captureWindow(callback);
 }
 
 /**
@@ -275,40 +314,53 @@ function captureSurface(path : string) : boolean {
 /**
  * 截取 App 窗口（不需要任何权限；App 全屏显示，截到的就是整块屏幕）
  * 限制：视频画面单独绘制，截图里视频区域可能是黑的
- * @returns 截图文件的绝对路径；失败返回 null
+ * @param callback 截图文件的绝对路径；失败为 null
  */
-function captureWindow() : Promise<string | null> {
-	return new Promise<string | null>((resolve : (path : string | null) => void) => {
-		const activity = UTSAndroid.getUniActivity();
-		if (activity == null) {
-			resolve(null);
-			return;
-		}
-		// 绘制界面必须在 UI 线程
-		activity.runOnUiThread(() => {
-			const path = `${screenshotDir()}/screenshot_${Date.now()}.jpg`;
-			try {
-				const view = activity.getWindow().getDecorView();
-				const width = view.getWidth();
-				const height = view.getHeight();
-				if (width <= 0 || height <= 0) {
-					resolve(null);
-					return;
-				}
-				const bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-				view.draw(new Canvas(bitmap));
-				const out = new FileOutputStream(path);
-				bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
-				out.flush();
-				out.close();
-				bitmap.recycle();
-				resolve(path);
-			} catch (e) {
-				console.error("截屏失败:", e);
-				resolve(null);
+function captureWindow(callback : (path : string | null) => void) {
+	const activity = UTSAndroid.getUniActivity();
+	if (activity == null) {
+		callback(null);
+		return;
+	}
+	// 绘制界面必须在 UI 线程
+	activity.runOnUiThread(() => {
+		const path = `${screenshotDir()}/screenshot_${Date.now()}.jpg`;
+		try {
+			const view = activity.getWindow().getDecorView();
+			const width = view.getWidth();
+			const height = view.getHeight();
+			if (width <= 0 || height <= 0) {
+				callback(null);
+				return;
 			}
-		});
+			const bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+			view.draw(new Canvas(bitmap));
+			const out = new FileOutputStream(path);
+			bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out);
+			out.flush();
+			out.close();
+			bitmap.recycle();
+			callback(path);
+		} catch (e) {
+			console.error("截屏失败:", e);
+			callback(null);
+		}
 	});
+}
+
+/**
+ * 删除本地文件（绝对路径、file:// 或 uni 虚拟路径都可以）
+ * 用原生接口删：蒸汽模式下 uni 的文件接口会把 /data/... 当成应用资源目录下的相对路径
+ * @returns 是否已删除
+ */
+export function deleteFile(path : string) : boolean {
+	try {
+		const file = new File(toAbsolutePath(path));
+		return file.exists() && file.delete();
+	} catch (e) {
+		console.warn("删除文件失败", e);
+		return false;
+	}
 }
 
 /**

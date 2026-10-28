@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+	<application>
+		<!-- 开机自启：类在 index.uts 里实现，包名 uts.sdk.modules.adNative 由插件 id ad-native 生成 -->
+		<receiver android:name="uts.sdk.modules.adNative.BootReceiver" android:exported="true" android:enabled="true">
+			<intent-filter android:priority="1000">
+				<action android:name="android.intent.action.BOOT_COMPLETED" />
+				<category android:name="android.intent.category.DEFAULT" />
+			</intent-filter>
+		</receiver>
+	</application>
+</manifest>
