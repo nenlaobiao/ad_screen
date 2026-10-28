@@ -82,7 +82,8 @@ export class SocketManager {
 		this.task = null
 		this.connected = false
 		if (task != null) {
-			task.close({ code: 1000, reason: '主动关闭' })
+			// 不传 code（默认 1000 正常关闭）：蒸汽模式下数字传到原生是 Double，原生要求 Integer 会报类型转换错误
+			task.close({ reason: '主动关闭' })
 		}
 		if (wasConnected) this.emitClose()
 	}

@@ -22,6 +22,7 @@ export const globalState = reactive<GlobalState>({
 	adList: [],
 	networkConnected: true,
 	appActive: true,
+	exiting: false,
 	paidWaiting: false,
 	takePet: false,
 	formatMachineCode: '',

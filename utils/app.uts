@@ -1,0 +1,18 @@
+import { globalState } from "@/store/index.uts"
+
+/** 卸载视频后等多久再退出（毫秒），给原生播放器停止进度回调留时间 */
+const EXIT_DELAY_MS : number = 300
+
+/**
+ * 退出 App
+ * 直接 uni.exit() 时，广告视频的原生播放器还会上报播放进度（onTimeUpdate），
+ * 此时 JS 应用已销毁，框架抛 “App not found for appId” 导致崩溃。
+ * 所以先把视频组件卸载（c-ad 监听 exiting），再退出。
+ */
+export function exitApp() {
+	if (globalState.exiting) return
+	globalState.exiting = true
+	setTimeout(() => {
+		uni.exit()
+	}, EXIT_DELAY_MS)
+}

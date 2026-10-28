@@ -2,6 +2,7 @@ import { globalState } from "@/store/index.uts"
 import { checkeStatus } from "@/api/index.uts"
 import { washPhase } from "@/serial/types.uts"
 import { restartApp } from "@/uni_modules/ad-native"
+import { exitApp } from "@/utils/app.uts"
 import socketController from "@/websocket/index.uts"
 import voiceController from "@/voice/index.uts"
 import { screenshotAndUpload } from "./screenshot.uts"
@@ -120,7 +121,7 @@ class MonitorController {
 			// 与旧版一致：关闭也回 restart 反馈
 			socketController.feedback('restart')
 			setTimeout(() => {
-				uni.exit()
+				exitApp()
 			}, 500)
 			return
 		}

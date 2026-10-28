@@ -9,6 +9,7 @@
 	import monitorController from '@/monitor/index.uts'
 	import voiceController from '@/voice/index.uts'
 	import { globalState } from '@/store/index.uts'
+	import { exitApp } from '@/utils/app.uts'
 	let firstBackTime = 0
 	/** 当前时间刷新定时器（底部状态栏显示），只在前台运行 */
 	let clockTimer : number | null = null
@@ -90,7 +91,7 @@
 			}, 2000)
 		} else if (Date.now() - firstBackTime < 2000) {
 			firstBackTime = Date.now()
-			uni.exit()
+			exitApp()
 		}
 	})
 

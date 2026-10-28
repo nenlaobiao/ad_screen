@@ -195,7 +195,8 @@
 	<image class="adBox-bg" src="/static/BG/adbg.png" />
 	<view class="adBox-box">
 		<!-- 视频广告 -->
-		<template v-if="adData != null && state.isPlay">
+		<!-- 退出 App 前先卸载视频，避免原生播放器在应用销毁后还上报进度导致崩溃 -->
+		<template v-if="adData != null && state.isPlay && !globalState.exiting">
 			<image class="swiper-img" v-if="adData!.data.type == 'image'" :src="adData!.path" mode="aspectFit" @load="imageLoad" 
 				@error="imageError(adData as dFile,$event as UniImageErrorEvent)"/>
 			<video class="swiper-video" v-else :id="state.videoId" :src="adData!.path" object-fit="contain" :show-loading="false" :controls="false"

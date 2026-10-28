@@ -53,6 +53,8 @@ export type GlobalState = {
 	networkConnected : boolean,
 	/** App 是否在前台 */
 	appActive : boolean,
+	/** 正在退出：广告视频要先卸载，再调用 uni.exit（见 utils/app.uts） */
+	exiting : boolean,
 	/** 已发出启动指令、等待设备离开待机（显示“已支付”） */
 	paidWaiting : boolean,
 	/** 适应阶段后又回到开门阶段：笼内已有宠物，提示不要再放 */
