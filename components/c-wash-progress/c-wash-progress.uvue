@@ -85,14 +85,15 @@
 <template>
 	<image class="wash-progress-bg" src="/static/BG/wash.png" />
 	<view class="wash-progress">
-		<text class="wash-progress-timetitle">步骤结束时间</text>
+		<text class="wash-progress-timetitle">洗护时间倒计时</text>
 		<text class="wash-progress-time">{{remainingTime}}</text>
 		<text class="wash-progress-tips">为保证宠物愉快洗浴，请不要离开，照看好您的宝贝</text>
 		<view class="progresBox">
-			<view :class="['progresBox-item',{afoot:item.afoot}]" v-for="(item,index) in steps">
-				<image class="img" :src="item.icon" />
+			<!-- 高亮 class 直接加在子元素上：App 端父元素 class 变化后，后代选择器的样式不会重新计算 -->
+			<view class="progresBox-item" v-for="(item,index) in steps">
+				<image :class="['img',{'img-afoot':item.afoot}]" :src="item.icon" />
 				<text class="title">{{item.title}}</text>
-				<view class="indexBox">
+				<view :class="['indexBox',{'indexBox-afoot':item.afoot}]">
 					<image class="icon" v-if="item.afoot" src="/static/icon/checkmarkempty.png" />
 					<text class="index" v-else>{{index + 1}}</text>
 				</view>
@@ -214,14 +215,12 @@
 				.linelast {
 					display: none !important;
 				}
-			}
 
-			.afoot {
-				.img {
+				.img-afoot {
 					background-color: #409ECF;
 				}
 
-				.indexBox {
+				.indexBox-afoot {
 					background-color: #2E87B5;
 				}
 			}

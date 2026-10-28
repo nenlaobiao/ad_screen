@@ -19,7 +19,7 @@
 	import type { AdItem, dFile } from '@/pages/index/types.uts'
 	import type { State } from "./types.uts"
 	/** 普洗、精洗允许下单的最低水温（℃） */
-	const MIN_WASH_WATER_TEMP : number = 26
+	const MIN_WASH_WATER_TEMP : number = 25
 	/** 商品模板失败重试间隔、定时刷新间隔、套餐信息失败重试间隔（毫秒） */
 	const TEMPLATE_RETRY_MS : number = 10000
 	const TEMPLATE_REFRESH_MS : number = 60 * 60 * 1000

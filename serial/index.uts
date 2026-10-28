@@ -257,7 +257,7 @@ class Controller {
 
 		// ---- D22 洗护阶段 ----
 		const phase = readU16(registerMap.WASH_PHASE)
-		// console.log('phase',phase)
+		console.log('洗护阶段',phase)
 		if (phase != null) {
 			const status = toDeviceStatus(phase)
 			if (status != null) {
