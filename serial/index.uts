@@ -19,6 +19,8 @@ const MODE_ENHANCE : number = 1
 const MODE_BASIS : number = 3
 /** 本地缓存：最近一次启动的套餐（dry / basis / enhance） */
 export const STORAGE_WASH_MODE : string = 'washMode'
+/** 本地缓存：皮重（KG） */
+const STORAGE_TARE_WEIGHT : string = 'tareWeight'
 
 /** 开门前消毒、适应阶段的倒计时不在 D19，返回对应寄存器；其余阶段返回 null */
 function stageCountdownAddress(status : number) : number | null {
@@ -59,6 +61,10 @@ class Controller {
 	private connectTimer : number | null = null
 	/** 每次读到洗护阶段时回调（每轮轮询一次，不只是变化时） */
 	public onStatus : ((status : number) => void) | null = null
+	/** 皮重（KG）：开门前笼内为空时的读数，之后显示的宠物体重都减去它 */
+	private tareWeight : number = 0
+	/** 皮重已更新但还没存到本地 */
+	private tareDirty : boolean = false
 
 	constructor() {}
 
@@ -67,6 +73,9 @@ class Controller {
 	 */
 	init() {
 		console.log("Serial Controller Init")
+		// 恢复上次的皮重，洗护中途 App 重启也能继续正确显示体重
+		const savedTare = uni.getStorageSync(STORAGE_TARE_WEIGHT)
+		if (typeof savedTare == 'number') this.tareWeight = savedTare as number
 		// 连续通信失败时断开并重新扫描串口
 		modbusQueue.onOffline = () => {
 			this.disconnect()
@@ -225,6 +234,27 @@ class Controller {
 		return code
 	}
 
+	/**
+	 * 软件去皮：待机、开门前消毒阶段笼内为空，持续把读数记为皮重（显示 0）；
+	 * 离开这两个阶段（开门放宠物）后，显示读数减去皮重
+	 */
+	private applyTare(raw : number, status : number) : number {
+		if (status == washPhase.POST_STERILIZE_STANDBY || status == washPhase.PRE_STERILIZE) {
+			if (raw != this.tareWeight) {
+				this.tareWeight = raw
+				this.tareDirty = true
+			}
+			return 0
+		}
+		if (this.tareDirty) {
+			this.tareDirty = false
+			uni.setStorageSync(STORAGE_TARE_WEIGHT, this.tareWeight)
+			console.log(`开门前去皮，皮重 ${this.tareWeight} KG`)
+		}
+		const net = Math.round((raw - this.tareWeight) * 100) / 100
+		return net > 0 ? net : 0
+	}
+
 	private clearConnectTimer() {
 		const timerId = this.connectTimer
 		if (timerId != null) {
@@ -301,7 +331,7 @@ class Controller {
 		// ---- D46 重量（float，占两个寄存器）----
 		const weight = readFloat(registerMap.WEIGHT)
 		if (weight != null) {
-			device.petWeight = weight
+			device.petWeight = this.applyTare(weight, device.status as number)
 		}
 
 		// 本段读到了洗护阶段：其余字段都更新完后再通知，回调里拿到的是同一轮的数据

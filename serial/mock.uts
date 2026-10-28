@@ -1,15 +1,71 @@
 import { toNewObject } from "@/utils/tools.uts"
 import type { OpenOptions } from "./types.uts"
-import  { washPhase, registerMap, liquidLevelStatus, faultCode } from "./types.uts"
+import { washPhase, registerMap, liquidLevelStatus, faultCode } from "./types.uts"
 
+/**
+ * 串口 Mock：没有真机时替换插件，在 serial.uts 顶部把
+ *   import { RS232Serial } from '@/uni_modules/shmily-rs232-serial';
+ * 换成
+ *   import { RS232Serial } from './mock.uts';
+ * 即可。接口与插件一致（getDeviceList / open / sendHex / subscribe / close），
+ * 内部按 Modbus RTU 从站应答 03 / 06 / 10 功能码，并模拟洗护流程。
+ */
 
-//设备号
+/** 设备号 */
 const DeviceCode : string = '15294'
+/** 寄存器数量（D0 ~ D799） */
+const REGISTER_COUNT : number = 800
+/** 应答延时（毫秒），模拟串口传输 */
+const RESPONSE_DELAY_MS : number = 10
+/** 启动值 (D20) 与故障复位值 (D21) */
+const TASK_WASH : number = 111
+const TASK_DRY : number = 255
+const FAULT_RESET : number = 100
 
+/** 流程中的一步：seconds 为 0 表示等待关门，DOOR_WAIT_SEC 秒后自动关门 */
+type MockStep = {
+	phase : number,
+	seconds : number,
+	/** 本阶段倒计时寄存器，没有为 -1 */
+	countdownReg : number,
+}
+/** 各阶段时长（秒），比真机短，方便调试 */
+const STEP_SEC : number = 10
+const DRY_SEC : number = 60
+const DOOR_WAIT_SEC : number = 5
+/** 烘干倒计时 (D38，单位 Min) */
+const REG_DRY_COUNTDOWN_MIN : number = 38
+const REG_FAULT_RESET : number = 21
+
+function step(phase : number, seconds : number, countdownReg : number = -1) : MockStep {
+	return { phase: phase, seconds: seconds, countdownReg: countdownReg } as MockStep
+}
+
+/** float32 的 IEEE754 位模式（返回 0 ~ 2^32-1，用乘法避免位运算溢出） */
+function floatBits(value : number) : number {
+	if (value == 0) return 0
+	const sign = value < 0 ? 1 : 0
+	let abs = Math.abs(value)
+	let exponent = Math.floor(Math.log(abs) / Math.log(2))
+	let mantissa = abs / Math.pow(2, exponent)
+	if (mantissa >= 2) {
+		mantissa /= 2
+		exponent++
+	} else if (mantissa < 1) {
+		mantissa *= 2
+		exponent--
+	}
+	let fraction = Math.round((mantissa - 1) * 8388608)
+	if (fraction >= 8388608) {
+		fraction = 0
+		exponent++
+	}
+	return sign * 2147483648 + (exponent + 127) * 8388608 + fraction
+}
 
 /**
  * Mock RS232Serial
- * 真正模拟 Modbus RTU 从站（寄存器基于数字数组）
+ * 模拟 Modbus RTU 从站（寄存器基于数字数组）
  */
 export class RS232Serial {
 
@@ -19,28 +75,32 @@ export class RS232Serial {
 	/** 模拟 D 区寄存器（每个元素 = 1 个 16bit 寄存器） */
 	private registers : number[] = []
 
+	/** 洗护流程 */
+	private steps : MockStep[] = []
+	private stepIndex : number = -1
+	private remain : number = 0
+	private flowTimer : number | null = null
+
 	constructor() {
 		this.initRegisters()
 	}
 
 	/** 初始化寄存器并写入默认值 */
 	private initRegisters() {
-		// 1. 初始化所有寄存器为 0
-		for (let i = 0; i < 800; i++) {
+		for (let i = 0; i < REGISTER_COUNT; i++) {
 			this.registers.push(0)
 		}
 
-		// 2. 写入特定的、有意义的默认值
-		// 这样配置非常清晰，一眼就能看出每个寄存器的初始状态
 		console.log('[ serialMock ] --> 正在初始化并写入默认寄存器值...')
-		this.writeRegister(registerMap.WATER_TEMPERATURE, 32.5);              // 设置默认水温 32.5°C
-		this.writeRegister(registerMap.ROOM_TEMPERATURE, 25);                 // 设置默认室温 25°C
-		this.writeRegister(registerMap.WEIGHT, 15);                           // 设置默认重量 15KG
-		this.writeRegister(registerMap.LIQUID_LEVEL_STATUS, liquidLevelStatus.NORMAL); // 设置默认液位为 "正常"
-		this.writeRegister(registerMap.FAULT_REGISTER, faultCode.NONE);       // 设置默认故障状态为 "无故障"
-		this.writeRegister(registerMap.WASH_PHASE, washPhase.POST_STERILIZE_STANDBY);		// 设置默认洗涤阶段为 "消毒后待机"
+		this.writeFloat(registerMap.WATER_TEMPERATURE, 32.5)                   // 水温 32.5°C
+		this.writeFloat(registerMap.ROOM_TEMPERATURE, 25)                      // 笼内温度 25°C
+		this.writeFloat(registerMap.WEIGHT, 15)                                // 重量 15KG
+		this.writeRegister(registerMap.LIQUID_LEVEL_STATUS, liquidLevelStatus.NORMAL) // 液位正常
+		this.writeRegister(registerMap.FAULT_REGISTER, faultCode.NONE)        // 无故障
+		this.writeRegister(registerMap.WASH_PHASE, washPhase.POST_STERILIZE_STANDBY) // 消毒后待机
+		this.writeRegister(registerMap.WASH_MODE, 1)                           // 加强洗
 
-		// 写入设备序列号 (地址 D700)
+		// 设备序列号 (D700)
 		this.writeString(registerMap.DEVICE_NAME, DeviceCode)
 		console.log('[ serialMock ] --> 默认寄存器值写入成功')
 	}
@@ -52,11 +112,23 @@ export class RS232Serial {
 	 */
 	private writeRegister(address : number, value : number) {
 		if (address >= 0 && address < this.registers.length) {
-			// console.log(`[ serialMock ] --> 写寄存器 D${address} = ${value}`)
-			this.registers[address] = value
+			this.registers[address] = value & 0xFFFF
 		} else {
 			console.warn(`[ serialMock ] --> 警告：尝试写入无效的寄存器地址 ${address}`)
 		}
+	}
+
+	/** 写入 float32：占两个寄存器，高 16 位在前（与真机一致） */
+	private writeFloat(address : number, value : number) {
+		const bits = floatBits(value)
+		this.writeRegister(address, Math.floor(bits / 65536))
+		this.writeRegister(address + 1, bits % 65536)
+	}
+
+	/** 读寄存器，越界返回 0 */
+	private readRegister(address : number) : number {
+		if (address >= 0 && address < this.registers.length) return this.registers[address]
+		return 0
 	}
 
 	/**
@@ -82,46 +154,55 @@ export class RS232Serial {
 	}
 
 	/** 打开串口 */
-	public open(options : any) : void {
+	public open(options : any) : boolean {
 		const opt = toNewObject<OpenOptions>(options)
 		this.isOpened = true
 		console.log(`[ serialMock ] --> 串口已打开 ${opt.port}`)
+		return true
 	}
 
 	/** 发送 HEX（Modbus RTU） */
 	public sendHex(hex : string) : void {
 		if (!this.isOpened) {
-			throw new Error("Serial port not opened")
+			console.error('[ serialMock ] --> Serial port is not open')
+			return
 		}
 
-		// console.log(`[ serialMock ] --> TX ${hex}`)
-
-		const bytes = this.hexToBytes(hex)
+		const bytes = this.hexToBytes(hex.replace(/\s/g, ''))
+		if (bytes.length < 8) {
+			console.warn(`[ serialMock ] --> 帧太短，忽略 ${hex}`)
+			return
+		}
 		const fc = bytes[1]
 
 		// 路由功能码
-		if (fc === 0x03) {
+		if (fc == 0x03) {
 			this.handleReadHolding(bytes)
-		} else if (fc === 0x06) {
+		} else if (fc == 0x06) {
 			this.handleWriteSingle(bytes)
-		} else if (fc === 0x10) {
+		} else if (fc == 0x10) {
 			this.handleWriteMultiple(bytes)
 		} else {
 			console.warn(`[ serialMock ] --> 不支持的功能码 ${fc}`)
 		}
 	}
 
-	/** 订阅数据 */
+	/** 订阅数据（与插件一致：只保存一个回调，close 不会清掉） */
 	public subscribe(type : string, cb : (data : string) => void) : void {
-		if (type === "HEX") {
+		if (type == "HEX") {
 			this.callback = cb
 		}
 	}
 
-	/** 关闭串口 */
-	public close() : void {
-		this.isOpened = false
+	public unsubscribe() : void {
 		this.callback = null
+	}
+
+	/** 关闭串口 */
+	public close() : boolean {
+		if (!this.isOpened) return false
+		this.isOpened = false
+		return true
 	}
 
 	// ------------------------------------------------------------------
@@ -134,21 +215,12 @@ export class RS232Serial {
 		const start = (req[2] << 8) | req[3]
 		const count = (req[4] << 8) | req[5]
 
-		const payload : number[] = []
-
+		const res : number[] = [slave, 0x03, count * 2]
 		for (let i = 0; i < count; i++) {
-			const value = this.registers[start + i] ?? 0
-			payload.push((value >> 8) & 0xFF) // 高位
-			payload.push(value & 0xFF)        // 低位
+			const value = this.readRegister(start + i)
+			res.push((value >> 8) & 0xFF) // 高位
+			res.push(value & 0xFF)        // 低位
 		}
-
-		const res : number[] = [
-			slave,
-			0x03,
-			payload.length,
-			...payload
-		]
-
 		this.appendAndSend(res)
 	}
 
@@ -159,18 +231,11 @@ export class RS232Serial {
 		const value = (req[4] << 8) | req[5]
 
 		this.writeRegister(address, value)
+		console.log(`[ serialMock ] --> 写 D${address} = ${value}`)
+		this.handleWrite(address, value)
 
-		// 06 的响应 = 原样回显请求（含 CRC）
-		const res : number[] = [
-			slave,
-			0x06,
-			req[2],
-			req[3],
-			req[4],
-			req[5]
-		]
-
-		this.appendAndSend(res)
+		// 06 的响应 = 原样回显请求
+		this.appendAndSend([slave, 0x06, req[2], req[3], req[4], req[5]])
 	}
 
 	/** 10 写多个寄存器 */
@@ -181,23 +246,122 @@ export class RS232Serial {
 
 		let offset = 7
 		for (let i = 0; i < count; i++) {
-			const hi = req[offset++]
-			const lo = req[offset++]
-			const value = (hi << 8) | lo
-			this.writeRegister(start + i, value) // 使用辅助函数写入
+			const value = (req[offset] << 8) | req[offset + 1]
+			offset += 2
+			this.writeRegister(start + i, value)
+			this.handleWrite(start + i, value)
 		}
 
 		// 写成功响应
-		const res : number[] = [
-			slave,
-			0x10,
-			(req[2]),
-			(req[3]),
-			(req[4]),
-			(req[5])
-		]
+		this.appendAndSend([slave, 0x10, req[2], req[3], req[4], req[5]])
+	}
 
-		this.appendAndSend(res)
+	// ------------------------------------------------------------------
+	// 洗护流程模拟
+	// ------------------------------------------------------------------
+
+	/** 写入后的设备动作：D20 启动，D21 故障复位 */
+	private handleWrite(address : number, value : number) {
+		if (address == registerMap.START_TASK) {
+			this.startFlow(value)
+		} else if (address == REG_FAULT_RESET && value == FAULT_RESET) {
+			console.log('[ serialMock ] --> 故障复位')
+			this.writeRegister(registerMap.FAULT_REGISTER, faultCode.NONE)
+			this.finishFlow()
+			setTimeout(() => {
+				this.writeRegister(REG_FAULT_RESET, 0)
+			}, 1000)
+		}
+	}
+
+	private startFlow(task : number) {
+		if (this.readRegister(registerMap.WASH_PHASE) != washPhase.POST_STERILIZE_STANDBY) {
+			console.warn('[ serialMock ] --> 不在待机状态，忽略启动指令')
+			return
+		}
+		if (task == TASK_DRY) {
+			this.steps = [
+				step(washPhase.DOOR_OPEN_WAITING_FOR_PET, 0),
+				step(washPhase.DRYING, DRY_SEC),
+				step(washPhase.DOOR_OPEN_WAITING_FOR_PICKUP, 0),
+				step(washPhase.POST_WASH_STERILIZE, STEP_SEC),
+			]
+		} else if (task == TASK_WASH) {
+			this.steps = [
+				step(washPhase.PRE_STERILIZE, STEP_SEC, registerMap.STERILIZE_COUNTDOWN),
+				step(washPhase.DOOR_OPEN_WAITING_FOR_PET, 0),
+				step(washPhase.ADAPTATION_WAIT, STEP_SEC, registerMap.ADAPT_COUNTDOWN),
+				step(washPhase.PRE_WASH_RINSE, STEP_SEC),
+				step(washPhase.SHOWER_GEL_WASH, STEP_SEC),
+				step(washPhase.POST_SHAMPOO_RINSE, STEP_SEC),
+				step(washPhase.CONDITIONER_CARE, STEP_SEC),
+				step(washPhase.FINAL_RINSE, STEP_SEC),
+				step(washPhase.DRYING, DRY_SEC),
+				step(washPhase.DOOR_OPEN_WAITING_FOR_PICKUP, 0),
+				step(washPhase.POST_WASH_STERILIZE, STEP_SEC),
+			]
+		} else {
+			console.warn(`[ serialMock ] --> 未知启动值 ${task}`)
+			return
+		}
+		console.log(`[ serialMock ] --> 启动${task == TASK_DRY ? '烘干' : '洗护'}流程`)
+		this.enterStep(0)
+		if (this.flowTimer == null) {
+			this.flowTimer = setInterval(() => {
+				this.tick()
+			}, 1000)
+		}
+	}
+
+	private enterStep(index : number) {
+		if (index >= this.steps.length) {
+			this.finishFlow()
+			return
+		}
+		this.stepIndex = index
+		const current = this.steps[index]
+		this.remain = current.seconds > 0 ? current.seconds : DOOR_WAIT_SEC
+		this.writeRegister(registerMap.WASH_PHASE, current.phase)
+		console.log(`[ serialMock ] --> 洗护阶段 ${current.phase}`)
+		this.updateCountdown()
+	}
+
+	/** 每秒推进一次；开门阶段 DOOR_WAIT_SEC 秒后自动关门 */
+	private tick() {
+		if (this.stepIndex < 0) return
+		this.remain--
+		if (this.remain <= 0) {
+			this.enterStep(this.stepIndex + 1)
+			return
+		}
+		this.updateCountdown()
+	}
+
+	/** 更新 D19 总倒计时、阶段倒计时和烘干分钟数 */
+	private updateCountdown() {
+		const current = this.steps[this.stepIndex]
+		let total = current.seconds > 0 ? this.remain : 0
+		for (let i = this.stepIndex + 1; i < this.steps.length; i++) {
+			total += this.steps[i].seconds
+		}
+		this.writeRegister(registerMap.TOTAL_TIME_COUNTDOWN, total)
+		if (current.countdownReg >= 0) this.writeRegister(current.countdownReg, this.remain)
+		if (current.phase == washPhase.DRYING) {
+			this.writeRegister(REG_DRY_COUNTDOWN_MIN, Math.ceil(this.remain / 60))
+		}
+	}
+
+	private finishFlow() {
+		const timerId = this.flowTimer
+		if (timerId != null) {
+			clearInterval(timerId)
+			this.flowTimer = null
+		}
+		this.stepIndex = -1
+		this.writeRegister(registerMap.TOTAL_TIME_COUNTDOWN, 0)
+		this.writeRegister(REG_DRY_COUNTDOWN_MIN, 0)
+		this.writeRegister(registerMap.WASH_PHASE, washPhase.POST_STERILIZE_STANDBY)
+		console.log('[ serialMock ] --> 流程结束，回到待机')
 	}
 
 	// ------------------------------------------------------------------
@@ -206,35 +370,35 @@ export class RS232Serial {
 
 	private appendAndSend(bytes : number[]) {
 		const crc = this.calcCRC(bytes)
-		bytes.push(crc & 0xff, (crc >> 8) & 0xff)
+		bytes.push(crc & 0xff)
+		bytes.push((crc >> 8) & 0xff)
 
 		const hex = this.bytesToHex(bytes)
 
 		setTimeout(() => {
-			// console.log(`[ serialMock ] --> RX ${hex}`)
-			if (this.callback != null) {
-				this.callback(hex)
+			const cb = this.callback
+			if (this.isOpened && cb != null) {
+				cb(hex)
 			}
-		}, 10)
+		}, RESPONSE_DELAY_MS)
 	}
 
 	private hexToBytes(hex : string) : number[] {
 		const arr : number[] = []
-		for (let i = 0; i < hex.length; i += 2) {
-			const sub = hex.substring(i, i + 2)
-			arr.push(parseInt(sub, 16))
+		for (let i = 0; i + 1 < hex.length; i += 2) {
+			arr.push(parseInt(hex.substring(i, i + 2), 16))
 		}
 		return arr
 	}
 
 	private bytesToHex(bytes : number[]) : string {
-		return bytes.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase()
+		return bytes.map((b : number) : string => b.toString(16).padStart(2, "0")).join("").toUpperCase()
 	}
 
 	/** CRC16-Modbus */
 	private calcCRC(data : number[]) : number {
 		let crc = 0xFFFF
-		for (let b of data) {
+		for (const b of data) {
 			crc ^= b
 			for (let i = 0; i < 8; i++) {
 				if ((crc & 1) == 1) crc = (crc >> 1) ^ 0xA001
