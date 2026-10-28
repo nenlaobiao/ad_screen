@@ -65,6 +65,8 @@ class Controller {
 	private tareWeight : number = 0
 	/** 皮重已更新但还没存到本地 */
 	private tareDirty : boolean = false
+	/** 上一次的重量原始读数，变化时打印日志方便调试 */
+	private lastRawWeight : number = -1
 
 	constructor() {}
 
@@ -239,6 +241,10 @@ class Controller {
 	 * 离开这两个阶段（开门放宠物）后，显示读数减去皮重
 	 */
 	private applyTare(raw : number, status : number) : number {
+		if (raw != this.lastRawWeight) {
+			this.lastRawWeight = raw
+			console.log(`重量读数 ${raw} KG，阶段 ${status}，皮重 ${this.tareWeight} KG`)
+		}
 		if (status == washPhase.POST_STERILIZE_STANDBY || status == washPhase.PRE_STERILIZE) {
 			if (raw != this.tareWeight) {
 				this.tareWeight = raw

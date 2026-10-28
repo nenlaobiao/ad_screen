@@ -260,7 +260,8 @@
 			<swiper-item class="goods-swiper-item" v-for="ad in state.goodsList" :key="ad.data.id">
 				<image class="swiper-img" :src="ad.path" mode="aspectFill" />
 				<view class="goods-info">
-					<text class="goods-info-title">{{ad.data.title}}</text>
+					<!-- 蒸汽模式用 text 组件的 max-lines 属性限制行数，CSS 的 lines 已废弃 -->
+					<text class="goods-info-title" :max-lines="3">{{ad.data.title}}</text>
 					<text class="goods-info-tips">微信扫码购买</text>
 					<image class="mpQr" :src="goodsQRcode(ad.data.id)" />
 				</view>
@@ -270,7 +271,7 @@
 			<image class="empty-qr" src="/static/mpqr.png" />
 			<view class="empty-textBox">
 				<text class="textBox-title">侎宠小程序</text>
-				<text class="textBox-tips">扫一扫，即刻开启爱宠专属的优质服务体验！</text>
+				<text class="textBox-tips" :max-lines="3">扫一扫，即刻开启爱宠专属的优质服务体验！</text>
 			</view>
 		</view>
 	</view>
@@ -361,7 +362,6 @@
 		margin-top: 4rpx;
 		font-size: 14rpx;
 		text-overflow: ellipsis;
-		lines: 3;
 		color: #fff;
 	}
 
@@ -393,7 +393,6 @@
 		font-size: 10rpx;
 		color: #fff;
 		text-overflow: ellipsis;
-		lines: 3;
 	}
 
 	.goods-info-tips {

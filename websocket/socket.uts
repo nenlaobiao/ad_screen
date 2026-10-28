@@ -114,6 +114,11 @@ export class SocketManager {
 	/** 解析下行消息，只处理 type 为 message 的业务消息 */
 	private handleMessage(data : any) {
 		if (typeof data != 'string') return
+		// 先看开头的 type，非业务消息直接跳过、不解析：
+		// 连接握手消息 web_socket_connect 里有 "get" 字段，蒸汽模式下 JSON.parseObject
+		// 遇到和 UTSJSONObject 方法同名的键（get）会报 TypeError
+		const head = (data as string).match(/^\s*\{\s*"type"\s*:\s*"([^"]*)"/)
+		if (head != null && head[1] != 'message') return
 		const msg = JSON.parseObject(data as string)
 		if (msg == null) {
 			console.warn(`WebSocket 收到非 JSON 消息: ${data}`)
