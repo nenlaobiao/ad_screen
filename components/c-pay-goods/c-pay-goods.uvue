@@ -20,6 +20,8 @@
 	import type { State } from "./types.uts"
 	/** 普洗、精洗允许下单的最低水温（℃） */
 	const MIN_WASH_WATER_TEMP : number = 25
+	/** 普洗、精洗允许下单的最高水温（℃），超过会烫伤宠物 */
+	const MAX_WASH_WATER_TEMP : number = 40
 	/** 商品模板失败重试间隔、定时刷新间隔、套餐信息失败重试间隔（毫秒） */
 	const TEMPLATE_RETRY_MS : number = 10000
 	const TEMPLATE_REFRESH_MS : number = 60 * 60 * 1000
@@ -171,6 +173,12 @@
 		if ((e.batch_type == 2 || e.batch_type == 3) && globalState.deviceData.water < MIN_WASH_WATER_TEMP) {
 			showMsg('请等待水温加热至26摄氏度')
 			voiceController.speak('请等待水温加热至26摄氏度。', true)
+			return
+		}
+		// 水温超过 40℃ 不让下单，避免烫伤宠物
+		if ((e.batch_type == 2 || e.batch_type == 3) && globalState.deviceData.water > MAX_WASH_WATER_TEMP) {
+			showMsg('水温过高，请等待水温降至40摄氏度以下')
+			voiceController.speak('水温过高，请等待水温降至40摄氏度以下。', true)
 			return
 		}
 		state.petWash = e
